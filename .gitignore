@@ -4,6 +4,7 @@
 /node_modules
 /.pnp
 .pnp.js
+.yarn/install-state.gz
 
 # testing
 /coverage
@@ -25,8 +26,19 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-.env*.local
 .env
+.env*.local
+
+# GCP service account keys (NEVER commit)
+service-account-key.json
+*.json.key
+
+# IDE
+.idea
+
+# Local dev uploads (use GCS in production)
+/public/uploads/*
+!/public/uploads/.gitkeep
 
 # vercel
 .vercel
@@ -34,3 +46,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma

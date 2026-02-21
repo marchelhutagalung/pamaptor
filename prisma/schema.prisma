@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum PostStatus {
+  HANYA_INFORMASI
+  PERLU_PERHATIAN
+  DALAM_TINDAK_LANJUT
+  SUDAH_DITINDAKLANJUTI
+  TIDAK_DAPAT_DITINDAKLANJUTI
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  slug      String   @unique // e.g. "ROBBERY", "FIRE"
+  label     String   // e.g. "Perampokan", "Kebakaran"
+  color     String   @default("#6b7280") // hex color for badge
+  order     Int      @default(0) // sort order
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  posts Post[]
+
+  @@index([isActive, order])
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  phone         String?
+  passwordHash  String
+  role          Role      @default(USER)
+  selfieUrl     String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  posts              Post[]
+  emailVerifications EmailVerification[]
+  passwordResets     PasswordReset[]
+}
+
+model Post {
+  id           String     @id @default(cuid())
+  imageUrl     String
+  description  String     @db.VarChar(500)
+  categoryId   String
+  category     Category   @relation(fields: [categoryId], references: [id])
+  locationText String
+  latitude     Float?
+  longitude    Float?
+  isPinned     Boolean    @default(false)
+  isRead       Boolean    @default(false)
+  status       PostStatus @default(HANYA_INFORMASI)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt(sort: Desc)])
+  @@index([isPinned])
+  @@index([status])
+  @@index([categoryId])
+  @@index([isRead])
+}
+
+model EmailVerification {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+}
