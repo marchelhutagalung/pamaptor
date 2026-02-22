@@ -2,14 +2,11 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { STATUS_OPTIONS as BASE_STATUS_OPTIONS } from "@/lib/constants";
 
 const STATUS_OPTIONS = [
   { value: "", label: "Semua Status" },
-  { value: "HANYA_INFORMASI", label: "Hanya Informasi" },
-  { value: "PERLU_PERHATIAN", label: "Perlu Perhatian" },
-  { value: "DALAM_TINDAK_LANJUT", label: "Dalam Tindak Lanjut" },
-  { value: "SUDAH_DITINDAKLANJUTI", label: "Sudah Ditindaklanjuti" },
-  { value: "TIDAK_DAPAT_DITINDAKLANJUTI", label: "Tidak Dapat Ditindaklanjuti" },
+  ...BASE_STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
 ];
 
 export default function ReportFilter() {
@@ -35,6 +32,7 @@ export default function ReportFilter() {
     if (from) params.set("from", from);
     if (to) params.set("to", to);
     if (status) params.set("status", status);
+    // Always reset to page 1 when filters change
 
     router.push(`/admin/laporan?${params.toString()}`);
   };

@@ -48,23 +48,31 @@ export default function LocationPicker({ onSelect, value }: LocationPickerProps)
       return;
     }
 
+    const controller = new AbortController();
+
     const search = async () => {
       setIsSearching(true);
       try {
         const res = await fetch(
-          `/api/geocode/search?q=${encodeURIComponent(debouncedQuery)}`
+          `/api/geocode/search?q=${encodeURIComponent(debouncedQuery)}`,
+          { signal: controller.signal }
         );
         const data = await res.json();
         setResults(data);
         setShowResults(data.length > 0);
-      } catch {
-        // silent fail
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          // silent fail for non-abort errors
+        }
       } finally {
-        setIsSearching(false);
+        if (!controller.signal.aborted) {
+          setIsSearching(false);
+        }
       }
     };
 
     search();
+    return () => controller.abort();
   }, [debouncedQuery]);
 
   const detectLocation = () => {

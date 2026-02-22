@@ -19,8 +19,9 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Pencil, Share2, Settings, LogOut } from "lucide-react";
+import { Pencil, Share2, Settings, LogOut, KeyRound } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 
 interface User {
   id: string;
@@ -31,21 +32,42 @@ interface User {
 
 export default function ProfileActions({ user }: { user: User }) {
   const router = useRouter();
+  const { toast } = useToast();
+
+  // Edit profile state
   const [editOpen, setEditOpen] = useState(false);
   const [name, setName] = useState(user.name);
   const [phone, setPhone] = useState(user.phone || "");
   const [isSaving, setIsSaving] = useState(false);
 
+  // Change password state
+  const [pwOpen, setPwOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [pwError, setPwError] = useState("");
+  const [pwSaving, setPwSaving] = useState(false);
+
   const handleSave = async () => {
     setIsSaving(true);
-    await fetch("/api/users/profile", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, phone }),
-    });
-    setIsSaving(false);
-    setEditOpen(false);
-    router.refresh();
+    try {
+      const res = await fetch("/api/users/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, phone }),
+      });
+      if (res.ok) {
+        toast({ title: "Profil diperbarui", description: "Perubahan berhasil disimpan." });
+        setEditOpen(false);
+        router.refresh();
+      } else {
+        toast({ title: "Gagal menyimpan", description: "Silakan coba lagi.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Gagal menyimpan", description: "Periksa koneksi internet Anda.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleShare = async () => {
@@ -56,7 +78,45 @@ export default function ProfileActions({ user }: { user: User }) {
       });
     } else {
       await navigator.clipboard.writeText(window.location.href);
-      alert("Link disalin!");
+      toast({ title: "Link disalin!", description: "Link profil telah disalin ke clipboard." });
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setPwError("");
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPwError("Semua field harus diisi");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwError("Password baru dan konfirmasi tidak cocok");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPwError("Password baru minimal 8 karakter");
+      return;
+    }
+    setPwSaving(true);
+    try {
+      const res = await fetch("/api/users/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPwError(data.error || "Terjadi kesalahan");
+      } else {
+        toast({ title: "Password diubah", description: "Password baru berhasil disimpan." });
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+        setPwOpen(false);
+      }
+    } catch {
+      setPwError("Terjadi kesalahan. Silakan coba lagi.");
+    } finally {
+      setPwSaving(false);
     }
   };
 
@@ -128,7 +188,76 @@ export default function ProfileActions({ user }: { user: User }) {
           <SheetHeader>
             <SheetTitle className="text-white">Pengaturan</SheetTitle>
           </SheetHeader>
-          <div className="py-4">
+          <div className="py-4 space-y-1">
+            {/* Change Password */}
+            <Dialog
+              open={pwOpen}
+              onOpenChange={(open) => {
+                setPwOpen(open);
+                if (!open) {
+                  setPwError("");
+                                setCurrentPassword("");
+                  setNewPassword("");
+                  setConfirmPassword("");
+                }
+              }}
+            >
+              <DialogTrigger asChild>
+                <button className="flex items-center gap-3 w-full px-4 py-4 text-white hover:bg-white/5 rounded-xl transition-colors">
+                  <KeyRound className="w-5 h-5 text-gray-400" />
+                  <span className="font-medium">Ganti Password</span>
+                </button>
+              </DialogTrigger>
+              <DialogContent className="bg-gray-900 border-white/10 text-white max-w-sm mx-auto">
+                <DialogHeader>
+                  <DialogTitle className="text-white">Ganti Password</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-gray-400 text-sm">Password Saat Ini</Label>
+                    <Input
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="bg-white/10 border-white/10 text-white"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-gray-400 text-sm">Password Baru</Label>
+                    <Input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="bg-white/10 border-white/10 text-white"
+                      placeholder="Min. 8 karakter"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-gray-400 text-sm">Konfirmasi Password Baru</Label>
+                    <Input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="bg-white/10 border-white/10 text-white"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                  {pwError && (
+                    <p className="text-red-400 text-xs px-1">{pwError}</p>
+                  )}
+                  <button
+                    onClick={handleChangePassword}
+                    disabled={pwSaving}
+                    className="w-full h-12 bg-white text-black hover:bg-gray-100 rounded-full font-semibold disabled:opacity-50 transition-colors"
+                  >
+                    {pwSaving ? "Menyimpan..." : "Simpan"}
+                  </button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Logout */}
             <button
               onClick={() => {
                 clearAllCaches();

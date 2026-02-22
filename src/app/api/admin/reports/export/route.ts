@@ -4,14 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import * as XLSX from "xlsx";
 import { format } from "date-fns";
-
-const STATUS_LABELS: Record<string, string> = {
-  HANYA_INFORMASI: "Hanya Informasi",
-  PERLU_PERHATIAN: "Perlu Perhatian",
-  DALAM_TINDAK_LANJUT: "Dalam Tindak Lanjut",
-  SUDAH_DITINDAKLANJUTI: "Sudah Ditindaklanjuti",
-  TIDAK_DAPAT_DITINDAKLANJUTI: "Tidak Dapat Ditindaklanjuti",
-};
+import { STATUS_LABELS } from "@/lib/constants";
 
 export async function GET(request: NextRequest) {
   const { error } = await requireAdmin();

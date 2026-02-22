@@ -1,6 +1,12 @@
 export const dynamic = "force-dynamic";
 
+import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
+
+export const metadata: Metadata = {
+  title: "Beranda | Pamaptor",
+  description: "Pantau laporan kejadian terbaru di sekitar Anda.",
+};
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -16,16 +22,23 @@ export default async function HomePage() {
 
   if (!session.user.selfieUrl) redirect("/selfie");
 
-  const initialPosts = await prisma.post.findMany({
-    take: 20,
-    orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
-    include: {
-      category: { select: { id: true, slug: true, label: true, color: true } },
-      user: {
-        select: { id: true, name: true, selfieUrl: true },
+  const [initialPosts, categories] = await Promise.all([
+    prisma.post.findMany({
+      take: 20,
+      orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
+      include: {
+        category: { select: { id: true, slug: true, label: true, color: true } },
+        user: {
+          select: { id: true, name: true, selfieUrl: true },
+        },
       },
-    },
-  });
+    }),
+    prisma.category.findMany({
+      where: { isActive: true },
+      orderBy: { order: "asc" },
+      select: { id: true, slug: true, label: true, color: true },
+    }),
+  ]);
 
   return (
     <div className="text-white">
@@ -62,14 +75,7 @@ export default async function HomePage() {
 
       {/* Timeline */}
       <div className="px-4 py-4 space-y-4">
-        {initialPosts.length === 0 ? (
-          <div className="text-center py-20 text-gray-500">
-            <p className="text-lg mb-2">Belum ada laporan</p>
-            <p className="text-sm">Jadilah yang pertama membuat laporan</p>
-          </div>
-        ) : (
-          <TimelineClient initialPosts={initialPosts} />
-        )}
+        <TimelineClient initialPosts={initialPosts} categories={categories} />
       </div>
 
       {/* FAB */}

@@ -1,9 +1,16 @@
 import AppImage from "@/components/AppImage";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Pin } from "lucide-react";
+import { MapPin, Pin, CircleDot } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { id } from "date-fns/locale";
+import dynamic from "next/dynamic";
+import { STATUS_LABELS, STATUS_COLORS } from "@/lib/constants";
+
+const MapThumbnail = dynamic(() => import("@/components/MapThumbnail"), {
+  ssr: false,
+  loading: () => <div className="h-28 w-full bg-gray-900 animate-pulse" />,
+});
 
 interface PostUser {
   id: string;
@@ -25,6 +32,8 @@ interface PostCardProps {
     description: string;
     category: PostCategory;
     locationText: string;
+    latitude?: number | null;
+    longitude?: number | null;
     isPinned: boolean;
     status: string;
     createdAt: Date | string;
@@ -37,6 +46,8 @@ export default function PostCard({ post }: PostCardProps) {
     addSuffix: true,
     locale: id,
   });
+
+  const hasMap = post.latitude != null && post.longitude != null;
 
   return (
     <article className="bg-[#111111] rounded-2xl overflow-hidden border border-white/10">
@@ -72,19 +83,35 @@ export default function PostCard({ post }: PostCardProps) {
         />
       </div>
 
+      {/* Map Thumbnail (only shown when GPS location is available) */}
+      {hasMap && (
+        <MapThumbnail
+          latitude={post.latitude!}
+          longitude={post.longitude!}
+        />
+      )}
+
       {/* Footer */}
       <div className="p-4 space-y-2">
-        <Badge
-          variant="outline"
-          className="text-xs font-medium border"
-          style={{
-            backgroundColor: `${post.category.color}20`,
-            color: post.category.color,
-            borderColor: `${post.category.color}80`,
-          }}
-        >
-          {post.category.label}
-        </Badge>
+        <div className="flex items-center justify-between">
+          <Badge
+            variant="outline"
+            className="text-xs font-medium border"
+            style={{
+              backgroundColor: `${post.category.color}20`,
+              color: post.category.color,
+              borderColor: `${post.category.color}80`,
+            }}
+          >
+            {post.category.label}
+          </Badge>
+          <div className="flex items-center gap-1.5">
+            <CircleDot className={`w-3 h-3 ${STATUS_COLORS[post.status] || "text-gray-400"}`} />
+            <span className={`text-xs ${STATUS_COLORS[post.status] || "text-gray-400"}`}>
+              {STATUS_LABELS[post.status] || post.status}
+            </span>
+          </div>
+        </div>
 
         {post.description && (
           <p className="text-gray-200 text-sm leading-relaxed line-clamp-3">

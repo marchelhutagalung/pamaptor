@@ -1,3 +1,10 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Pamaptor",
+  description: "Masuk atau daftar akun Pamaptor untuk melaporkan kejadian di sekitar Anda.",
+};
+
 export default function AuthLayout({
   children,
 }: {

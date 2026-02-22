@@ -11,22 +11,16 @@ import { ArrowLeft, MapPin, Phone, Mail, Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import ReportDetailActions from "./ReportDetailActions";
+import ReportNotes from "./ReportNotes";
+import dynamic from "next/dynamic";
+import { STATUS_LABELS, STATUS_BG } from "@/lib/constants";
 
-const STATUS_LABELS: Record<string, string> = {
-  HANYA_INFORMASI: "Hanya Informasi",
-  PERLU_PERHATIAN: "Perlu Perhatian",
-  DALAM_TINDAK_LANJUT: "Dalam Tindak Lanjut",
-  SUDAH_DITINDAKLANJUTI: "Sudah Ditindaklanjuti",
-  TIDAK_DAPAT_DITINDAKLANJUTI: "Tidak Dapat Ditindaklanjuti",
-};
-
-const STATUS_BG: Record<string, string> = {
-  HANYA_INFORMASI: "bg-blue-900/50 text-blue-300",
-  PERLU_PERHATIAN: "bg-yellow-900/50 text-yellow-300",
-  DALAM_TINDAK_LANJUT: "bg-orange-900/50 text-orange-300",
-  SUDAH_DITINDAKLANJUTI: "bg-green-900/50 text-green-300",
-  TIDAK_DAPAT_DITINDAKLANJUTI: "bg-gray-800/50 text-gray-300",
-};
+const ReportMap = dynamic(() => import("@/components/ReportMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-48 w-full bg-gray-900 rounded-xl animate-pulse" />
+  ),
+});
 
 export default async function ReportDetailPage({
   params,
@@ -114,10 +108,17 @@ export default async function ReportDetailPage({
           <p className="text-xs text-gray-500 mb-1.5 uppercase tracking-wider">
             Lokasi
           </p>
-          <div className="flex items-start gap-2 text-gray-200">
+          <div className="flex items-start gap-2 text-gray-200 mb-3">
             <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-blue-400" />
             <p className="text-sm">{post.locationText}</p>
           </div>
+          {post.latitude && post.longitude && (
+            <ReportMap
+              latitude={post.latitude}
+              longitude={post.longitude}
+              locationText={post.locationText}
+            />
+          )}
         </div>
 
         {/* Timestamp */}
@@ -176,6 +177,11 @@ export default async function ReportDetailPage({
           currentStatus={post.status}
           isPinned={post.isPinned}
         />
+
+        {/* Internal Notes */}
+        <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+          <ReportNotes postId={post.id} />
+        </div>
       </div>
     </div>
   );

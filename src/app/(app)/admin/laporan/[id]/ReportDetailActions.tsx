@@ -3,14 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pin, PinOff } from "lucide-react";
-
-const POST_STATUSES = [
-  { value: "HANYA_INFORMASI", label: "Hanya Informasi", color: "text-blue-400" },
-  { value: "PERLU_PERHATIAN", label: "Perlu Perhatian", color: "text-yellow-400" },
-  { value: "DALAM_TINDAK_LANJUT", label: "Dalam Tindak Lanjut", color: "text-orange-400" },
-  { value: "SUDAH_DITINDAKLANJUTI", label: "Sudah Ditindaklanjuti", color: "text-green-400" },
-  { value: "TIDAK_DAPAT_DITINDAKLANJUTI", label: "Tidak Dapat Ditindaklanjuti", color: "text-gray-400" },
-];
+import { useToast } from "@/hooks/use-toast";
+import { STATUS_OPTIONS } from "@/lib/constants";
 
 interface ReportDetailActionsProps {
   postId: string;
@@ -24,23 +18,47 @@ export default function ReportDetailActions({
   isPinned,
 }: ReportDetailActionsProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const [status, setStatus] = useState(currentStatus);
   const [pinned, setPinned] = useState(isPinned);
   const [isLoading, setIsLoading] = useState(false);
 
   const update = async (data: { status?: string; isPinned?: boolean }) => {
     setIsLoading(true);
-    const res = await fetch(`/api/admin/reports/${postId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (res.ok) {
-      if (data.status) setStatus(data.status);
-      if (data.isPinned !== undefined) setPinned(data.isPinned);
-      router.refresh();
+    try {
+      const res = await fetch(`/api/admin/reports/${postId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (res.ok) {
+        if (data.status) setStatus(data.status);
+        if (data.isPinned !== undefined) setPinned(data.isPinned);
+        router.refresh();
+        toast({
+          title: data.status ? "Status diperbarui" : data.isPinned ? "Laporan disematkan" : "Sematan dilepas",
+          description: data.status
+            ? `Status berhasil diubah ke "${STATUS_OPTIONS.find((s) => s.value === data.status)?.label}"`
+            : data.isPinned
+            ? "Laporan akan muncul di atas timeline"
+            : "Laporan tidak lagi disematkan",
+        });
+      } else {
+        toast({
+          title: "Gagal memperbarui",
+          description: "Terjadi kesalahan. Silakan coba lagi.",
+          variant: "destructive",
+        });
+      }
+    } catch {
+      toast({
+        title: "Gagal memperbarui",
+        description: "Periksa koneksi internet Anda.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleStatusChange = (newStatus: string) => {
@@ -57,7 +75,7 @@ export default function ReportDetailActions({
           Ubah Status
         </p>
         <div className="space-y-2">
-          {POST_STATUSES.map((s) => (
+          {STATUS_OPTIONS.map((s) => (
             <button
               key={s.value}
               onClick={() => handleStatusChange(s.value)}

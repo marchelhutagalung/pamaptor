@@ -16,13 +16,25 @@ const registerSchema = z
     phone: z.string().optional(),
     password: z.string().min(8, "Password minimal 8 karakter"),
     confirmPassword: z.string(),
+    role: z.enum(["Masyarakat", "Petugas"]),
+    secret: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Konfirmasi password tidak cocok",
     path: ["confirmPassword"],
-  });
+  })
+  .refine(
+    (data) => data.role !== "Petugas" || (data.secret && data.secret.length > 0),
+    {
+      message: "Kode akses petugas harus diisi",
+      path: ["secret"],
+    }
+  );
 
 type RegisterForm = z.infer<typeof registerSchema>;
+
+const inputClass =
+  "bg-white/10 border-white/10 text-white placeholder:text-gray-500 h-14 rounded-xl";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -32,24 +44,34 @@ export default function RegisterPage() {
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
+    defaultValues: { role: "Masyarakat" },
   });
+
+  const selectedRole = watch("role");
 
   const onSubmit = async (data: RegisterForm) => {
     setIsLoading(true);
     setError("");
 
-    const res = await fetch("/api/auth/register", {
+    const isPetugas = data.role === "Petugas";
+
+    const endpoint = isPetugas
+      ? "/api/auth/register-admin"
+      : "/api/auth/register";
+
+    const body = isPetugas
+      ? { name: data.name, email: data.email, phone: data.phone, password: data.password, secret: data.secret }
+      : { name: data.name, email: data.email, phone: data.phone, password: data.password };
+
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        password: data.password,
-      }),
+      body: JSON.stringify(body),
     });
 
     const json = await res.json();
@@ -60,6 +82,8 @@ export default function RegisterPage() {
       return;
     }
 
+    // Petugas is auto-verified, redirect straight to login
+    // Masyarakat needs email verification
     router.push("/login?registered=true");
   };
 
@@ -76,12 +100,42 @@ export default function RegisterPage() {
         </div>
       )}
 
+      {/* Role selector */}
+      <div className="mb-6">
+        <p className="text-sm text-gray-400 mb-3">Daftar sebagai:</p>
+        <div className="grid grid-cols-2 gap-3">
+          {(["Masyarakat", "Petugas"] as const).map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setValue("role", r, { shouldValidate: true })}
+              className={`flex items-center gap-2 px-4 py-3 rounded-full border text-sm font-medium transition-colors ${
+                selectedRole === r
+                  ? "border-white bg-white/10 text-white"
+                  : "border-white/20 text-gray-400"
+              }`}
+            >
+              <span
+                className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                  selectedRole === r ? "border-white" : "border-gray-500"
+                }`}
+              >
+                {selectedRole === r && (
+                  <span className="w-2 h-2 rounded-full bg-white" />
+                )}
+              </span>
+              {r}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <Input
             {...register("name")}
             placeholder="Nama lengkap"
-            className="bg-white/10 border-white/10 text-white placeholder:text-gray-500 h-14 rounded-xl"
+            className={inputClass}
           />
           {errors.name && (
             <p className="text-red-400 text-xs mt-1">{errors.name.message}</p>
@@ -93,7 +147,7 @@ export default function RegisterPage() {
             {...register("email")}
             type="email"
             placeholder="Email"
-            className="bg-white/10 border-white/10 text-white placeholder:text-gray-500 h-14 rounded-xl"
+            className={inputClass}
             autoComplete="email"
           />
           {errors.email && (
@@ -106,7 +160,7 @@ export default function RegisterPage() {
             {...register("phone")}
             type="tel"
             placeholder="Nomor HP (opsional)"
-            className="bg-white/10 border-white/10 text-white placeholder:text-gray-500 h-14 rounded-xl"
+            className={inputClass}
           />
         </div>
 
@@ -115,7 +169,7 @@ export default function RegisterPage() {
             {...register("password")}
             type="password"
             placeholder="Password (min. 8 karakter)"
-            className="bg-white/10 border-white/10 text-white placeholder:text-gray-500 h-14 rounded-xl"
+            className={inputClass}
             autoComplete="new-password"
           />
           {errors.password && (
@@ -130,7 +184,7 @@ export default function RegisterPage() {
             {...register("confirmPassword")}
             type="password"
             placeholder="Konfirmasi password"
-            className="bg-white/10 border-white/10 text-white placeholder:text-gray-500 h-14 rounded-xl"
+            className={inputClass}
             autoComplete="new-password"
           />
           {errors.confirmPassword && (
@@ -139,6 +193,27 @@ export default function RegisterPage() {
             </p>
           )}
         </div>
+
+        {/* Secret field — only shown for Petugas */}
+        {selectedRole === "Petugas" && (
+          <div>
+            <Input
+              {...register("secret")}
+              type="password"
+              placeholder="Kode akses petugas"
+              className={inputClass}
+              autoComplete="off"
+            />
+            {errors.secret && (
+              <p className="text-red-400 text-xs mt-1">
+                {errors.secret.message}
+              </p>
+            )}
+            <p className="text-gray-500 text-xs mt-1 px-1">
+              Kode ini diberikan oleh admin Pamaptor.
+            </p>
+          </div>
+        )}
 
         <Button
           type="submit"

@@ -20,6 +20,10 @@ enum PostStatus {
   TIDAK_DAPAT_DITINDAKLANJUTI
 }
 
+enum NotificationType {
+  STATUS_CHANGED
+}
+
 model Category {
   id        String   @id @default(cuid())
   slug      String   @unique // e.g. "ROBBERY", "FIRE"
@@ -50,6 +54,8 @@ model User {
   posts              Post[]
   emailVerifications EmailVerification[]
   passwordResets     PasswordReset[]
+  notifications      Notification[]
+  adminNotes         ReportNote[]        @relation("AdminNotes")
 }
 
 model Post {
@@ -69,6 +75,9 @@ model Post {
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  notes         ReportNote[]
+  notifications Notification[]
 
   @@index([createdAt(sort: Desc)])
   @@index([isPinned])
@@ -102,4 +111,34 @@ model PasswordReset {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([token])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  message   String
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  postId String?
+  post   Post?   @relation(fields: [postId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isRead, createdAt(sort: Desc)])
+}
+
+model ReportNote {
+  id        String   @id @default(cuid())
+  content   String   @db.VarChar(1000)
+  createdAt DateTime @default(now())
+
+  postId  String
+  post    Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  adminId String
+  admin   User   @relation("AdminNotes", fields: [adminId], references: [id])
+
+  @@index([postId, createdAt(sort: Desc)])
 }
