@@ -1,4 +1,10 @@
+import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
+
+export const metadata: Metadata = {
+  title: "Profil | Pamaptor",
+  description: "Kelola profil dan lihat riwayat laporan Anda.",
+};
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";

@@ -12,22 +12,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-
-const STATUS_LABELS: Record<string, string> = {
-  HANYA_INFORMASI: "Hanya Informasi",
-  PERLU_PERHATIAN: "Perlu Perhatian",
-  DALAM_TINDAK_LANJUT: "Dalam Tindak Lanjut",
-  SUDAH_DITINDAKLANJUTI: "Sudah Ditindaklanjuti",
-  TIDAK_DAPAT_DITINDAKLANJUTI: "Tidak Dapat Ditindaklanjuti",
-};
-
-const STATUS_DOT: Record<string, string> = {
-  HANYA_INFORMASI: "bg-blue-400",
-  PERLU_PERHATIAN: "bg-yellow-400",
-  DALAM_TINDAK_LANJUT: "bg-orange-400",
-  SUDAH_DITINDAKLANJUTI: "bg-green-400",
-  TIDAK_DAPAT_DITINDAKLANJUTI: "bg-gray-400",
-};
+import { STATUS_LABELS, STATUS_DOT_COLORS as STATUS_DOT } from "@/lib/constants";
 
 interface ProfilePost {
   id: string;

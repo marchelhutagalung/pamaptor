@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { sendVerificationEmail } from "@/lib/email";
+import { rateLimit, getIP } from "@/lib/rate-limit";
 
 const registerAdminSchema = z.object({
   name: z.string().min(2, "Nama minimal 2 karakter"),
@@ -12,6 +15,14 @@ const registerAdminSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const rl = rateLimit(getIP(request), "register-admin", 5, 60 * 60 * 1000);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Terlalu banyak percobaan. Coba lagi nanti." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+    );
+  }
+
   try {
     const body = await request.json();
     const validation = registerAdminSchema.safeParse(body);
@@ -51,15 +62,27 @@ export async function POST(request: NextRequest) {
         phone: phone || null,
         passwordHash,
         role: "ADMIN",
-        emailVerified: new Date(), // Auto-verified for admin
+        // emailVerified is null until they verify via email
       },
     });
 
-    return NextResponse.json(
-      {
-        message: "Admin berhasil didaftarkan.",
-        user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    // Create email verification token (same as regular users)
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await prisma.emailVerification.create({
+      data: {
+        email,
+        token,
+        expiresAt,
+        userId: user.id,
       },
+    });
+
+    await sendVerificationEmail(email, token);
+
+    return NextResponse.json(
+      { message: "Registrasi berhasil. Silakan cek email untuk verifikasi." },
       { status: 201 }
     );
   } catch (error) {

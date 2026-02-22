@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { rateLimit, getIP } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
+  const rl = rateLimit(getIP(request), "email-verify", 10, 15 * 60 * 1000);
+  if (!rl.allowed) {
+    return NextResponse.redirect(
+      new URL("/login?error=too_many_requests", request.url)
+    );
+  }
+
   const token = request.nextUrl.searchParams.get("token");
 
   if (!token) {

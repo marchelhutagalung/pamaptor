@@ -3,14 +3,7 @@ import { requireAdmin } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-
-const POST_STATUSES = [
-  "HANYA_INFORMASI",
-  "PERLU_PERHATIAN",
-  "DALAM_TINDAK_LANJUT",
-  "SUDAH_DITINDAKLANJUTI",
-  "TIDAK_DAPAT_DITINDAKLANJUTI",
-] as const;
+import { POST_STATUSES, STATUS_NOTIFICATION_MESSAGES } from "@/lib/constants";
 
 const updateSchema = z.object({
   status: z.enum(POST_STATUSES).optional(),
@@ -62,6 +55,16 @@ export async function PATCH(
     return NextResponse.json({ error: "Data tidak valid" }, { status: 400 });
   }
 
+  // Get existing post to compare status and get userId
+  const existing = await prisma.post.findUnique({
+    where: { id: params.id },
+    select: { status: true, userId: true },
+  });
+
+  if (!existing) {
+    return NextResponse.json({ error: "Laporan tidak ditemukan" }, { status: 404 });
+  }
+
   const post = await prisma.post.update({
     where: { id: params.id },
     data: validation.data,
@@ -69,6 +72,19 @@ export async function PATCH(
       category: { select: { id: true, slug: true, label: true, color: true } },
     },
   });
+
+  // Create notification if status changed
+  const newStatus = validation.data.status;
+  if (newStatus && newStatus !== existing.status) {
+    await prisma.notification.create({
+      data: {
+        userId: existing.userId,
+        type: "STATUS_CHANGED",
+        message: STATUS_NOTIFICATION_MESSAGES[newStatus],
+        postId: params.id,
+      },
+    });
+  }
 
   // Revalidate timeline so pin/unpin changes appear immediately
   revalidatePath("/home");

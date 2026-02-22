@@ -3,6 +3,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { sendVerificationEmail } from "@/lib/email";
+import { rateLimit, getIP } from "@/lib/rate-limit";
 import crypto from "crypto";
 
 const registerSchema = z.object({
@@ -13,6 +14,14 @@ const registerSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const rl = rateLimit(getIP(request), "register", 5, 60 * 60 * 1000);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Terlalu banyak percobaan. Coba lagi nanti." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+    );
+  }
+
   try {
     const body = await request.json();
     const validation = registerSchema.safeParse(body);

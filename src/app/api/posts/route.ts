@@ -24,11 +24,15 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = request.nextUrl;
   const cursor = searchParams.get("cursor");
+  const categoryId = searchParams.get("categoryId");
   const limit = 20;
 
   const posts = await prisma.post.findMany({
     take: limit + 1,
     ...(cursor && { cursor: { id: cursor }, skip: 1 }),
+    where: {
+      ...(categoryId ? { categoryId } : {}),
+    },
     orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
     include: {
       category: { select: { id: true, slug: true, label: true, color: true } },

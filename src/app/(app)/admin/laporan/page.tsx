@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getServerSession } from "next-auth";
+
+export const metadata: Metadata = {
+  title: "Manajemen Laporan | Pamaptor",
+  description: "Kelola dan tindaklanjuti laporan dari masyarakat.",
+};
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -12,33 +18,21 @@ import ExportButton from "./ExportButton";
 import ReportFilter from "./ReportFilter";
 import { formatDistanceToNow } from "date-fns";
 import { id } from "date-fns/locale";
-import { CircleDot } from "lucide-react";
-
-const STATUS_LABELS: Record<string, string> = {
-  HANYA_INFORMASI: "Hanya Informasi",
-  PERLU_PERHATIAN: "Perlu Perhatian",
-  DALAM_TINDAK_LANJUT: "Dalam Tindak Lanjut",
-  SUDAH_DITINDAKLANJUTI: "Sudah Ditindaklanjuti",
-  TIDAK_DAPAT_DITINDAKLANJUTI: "Tidak Dapat Ditindaklanjuti",
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  HANYA_INFORMASI: "text-blue-400",
-  PERLU_PERHATIAN: "text-yellow-400",
-  DALAM_TINDAK_LANJUT: "text-orange-400",
-  SUDAH_DITINDAKLANJUTI: "text-green-400",
-  TIDAK_DAPAT_DITINDAKLANJUTI: "text-gray-400",
-};
+import { CircleDot, ChevronLeft, ChevronRight } from "lucide-react";
+import { STATUS_LABELS, STATUS_COLORS } from "@/lib/constants";
 
 const VALID_STATUSES = Object.keys(STATUS_LABELS);
+const PAGE_SIZE = 10;
 
 export default async function LaporanPage({
   searchParams,
 }: {
-  searchParams: { from?: string; to?: string; status?: string };
+  searchParams: { from?: string; to?: string; status?: string; page?: string };
 }) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "ADMIN") redirect("/home");
+
+  const currentPage = Math.max(1, parseInt(searchParams.page || "1", 10) || 1);
 
   const where: Prisma.PostWhereInput = {};
 
@@ -55,32 +49,65 @@ export default async function LaporanPage({
     where.status = searchParams.status as Prisma.EnumPostStatusFilter;
   }
 
-  const [posts, categoryCountsRaw, totalNew, allCategories] = await Promise.all([
-    prisma.post.findMany({
-      where,
-      orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
-      include: {
-        category: { select: { id: true, slug: true, label: true, color: true } },
-        user: {
-          select: { id: true, name: true, selfieUrl: true },
-        },
-      },
-    }),
-    prisma.post.groupBy({ by: ["categoryId"], where, _count: { categoryId: true } }),
-    prisma.post.count({ where: { isRead: false } }),
-    prisma.category.findMany({ where: { isActive: true }, orderBy: { order: "asc" } }),
-  ]);
+  const orderBy: Prisma.PostOrderByWithRelationInput[] = [
+    { isPinned: "desc" },
+    { createdAt: "desc" },
+  ];
 
-  // Map category counts to include label/color
-  const catMap = new Map(allCategories.map((c) => [c.id, c]));
-  const categoryCounts = categoryCountsRaw.map((item) => {
-    const cat = catMap.get(item.categoryId);
-    return {
-      label: cat?.label || "Lainnya",
-      color: cat?.color || "#6b7280",
-      count: item._count.categoryId,
-    };
-  });
+  const [posts, totalCount, categoryCountsRaw, totalNew, allCategories] =
+    await Promise.all([
+      prisma.post.findMany({
+        where,
+        orderBy,
+        skip: (currentPage - 1) * PAGE_SIZE,
+        take: PAGE_SIZE,
+        include: {
+          category: {
+            select: { id: true, slug: true, label: true, color: true },
+          },
+          user: {
+            select: { id: true, name: true, selfieUrl: true },
+          },
+        },
+      }),
+      prisma.post.count({ where }),
+      prisma.post.groupBy({
+        by: ["categoryId"],
+        where,
+        _count: { categoryId: true },
+      }),
+      prisma.post.count({ where: { isRead: false } }),
+      prisma.category.findMany({
+        where: { isActive: true },
+        orderBy: { order: "asc" },
+      }),
+    ]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  // Build category counts — include ALL active categories, even those with 0 posts
+  const countMap = new Map(
+    categoryCountsRaw.map((item) => [item.categoryId, item._count.categoryId])
+  );
+  const categoryCounts = allCategories.map((cat) => ({
+    label: cat.label,
+    color: cat.color,
+    count: countMap.get(cat.id) ?? 0,
+  }));
+
+  // Build URL helper that preserves filters
+  const buildPageUrl = (page: number) => {
+    const params = new URLSearchParams();
+    if (searchParams.from) params.set("from", searchParams.from);
+    if (searchParams.to) params.set("to", searchParams.to);
+    if (searchParams.status) params.set("status", searchParams.status);
+    if (page > 1) params.set("page", String(page));
+    const qs = params.toString();
+    return `/admin/laporan${qs ? `?${qs}` : ""}`;
+  };
+
+  const startItem = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const endItem = Math.min(currentPage * PAGE_SIZE, totalCount);
 
   return (
     <div className="text-white">
@@ -99,9 +126,10 @@ export default async function LaporanPage({
 
       {/* Chart */}
       <div className="mx-4 mb-4 p-4 bg-white/5 rounded-2xl border border-white/10">
-        <p className="text-sm font-medium text-gray-400 mb-3">
-          Laporan per Kategori
-        </p>
+        <div className="flex items-baseline justify-between mb-3">
+          <p className="text-sm font-medium text-gray-400">Ringkasan Laporan</p>
+          <p className="text-xs text-gray-600">{totalCount} total</p>
+        </div>
         <ReportChart categoryCounts={categoryCounts} />
       </div>
 
@@ -150,12 +178,16 @@ export default async function LaporanPage({
                           Baru
                         </span>
                       )}
-                      <CircleDot className={`w-3.5 h-3.5 ${STATUS_COLORS[post.status] || "text-gray-400"}`} />
+                      <CircleDot
+                        className={`w-3.5 h-3.5 ${STATUS_COLORS[post.status] || "text-gray-400"}`}
+                      />
                     </div>
                   </div>
                   <div className="flex items-center gap-2 mb-1.5">
                     <CategoryBadge category={post.category} />
-                    <span className={`text-xs ${STATUS_COLORS[post.status] || "text-gray-400"}`}>
+                    <span
+                      className={`text-xs ${STATUS_COLORS[post.status] || "text-gray-400"}`}
+                    >
                       {STATUS_LABELS[post.status] || post.status}
                     </span>
                   </div>
@@ -174,6 +206,47 @@ export default async function LaporanPage({
           ))
         )}
       </div>
+
+      {/* Pagination */}
+      {totalCount > 0 && (
+        <div className="px-4 pb-6 flex items-center justify-between gap-3">
+          {/* Page info */}
+          <p className="text-xs text-gray-500">
+            {startItem}–{endItem} dari {totalCount} laporan
+          </p>
+
+          {/* Prev / Page indicator / Next */}
+          <div className="flex items-center gap-2">
+            <Link
+              href={buildPageUrl(currentPage - 1)}
+              aria-disabled={currentPage <= 1}
+              className={`flex items-center justify-center w-8 h-8 rounded-xl border text-sm transition-colors ${
+                currentPage <= 1
+                  ? "border-white/5 text-gray-700 pointer-events-none"
+                  : "border-white/10 text-white hover:bg-white/10"
+              }`}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Link>
+
+            <span className="text-xs text-gray-400 min-w-[64px] text-center">
+              {currentPage} / {totalPages}
+            </span>
+
+            <Link
+              href={buildPageUrl(currentPage + 1)}
+              aria-disabled={currentPage >= totalPages}
+              className={`flex items-center justify-center w-8 h-8 rounded-xl border text-sm transition-colors ${
+                currentPage >= totalPages
+                  ? "border-white/5 text-gray-700 pointer-events-none"
+                  : "border-white/10 text-white hover:bg-white/10"
+              }`}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
