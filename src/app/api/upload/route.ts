@@ -6,8 +6,8 @@ import crypto from "crypto";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024; // 10MB raw input limit
-const MAX_OUTPUT_SIZE = 1 * 1024 * 1024; // 1MB after compression
-const MAX_DIMENSION = 1920; // max width or height in px
+const MAX_OUTPUT_SIZE = 500 * 1024; // 500KB after compression
+const MAX_DIMENSION = 1280; // max width or height in px
 
 async function compressImage(
   buffer: Buffer,
@@ -43,8 +43,8 @@ async function compressImage(
   // Last resort: resize smaller + low quality
   const finalBuffer = await sharp(buffer)
     .rotate()
-    .resize(1280, 1280, { fit: "inside", withoutEnlargement: true })
-    .jpeg({ quality: 35, mozjpeg: true })
+    .resize(960, 960, { fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 30, mozjpeg: true })
     .toBuffer();
 
   return { data: finalBuffer, contentType: "image/jpeg" };
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     const rawBuffer = Buffer.from(await file.arrayBuffer());
 
-    // Compress image to under 1MB
+    // Compress image to under 500KB
     const { data: optimized, contentType } = await compressImage(
       rawBuffer,
       MAX_OUTPUT_SIZE

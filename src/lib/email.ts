@@ -1,19 +1,27 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null;
+const transporter =
+  process.env.SMTP_HOST
+    ? nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || "587", 10),
+        secure: process.env.SMTP_PORT === "465",
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      })
+    : null;
 
-const FROM_EMAIL = "Pamaptor <noreply@pamaptor.com>";
+const FROM_EMAIL = process.env.SMTP_FROM || "Pamaptor <noreply@pamaptor.com>";
 const APP_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
 
 async function sendEmail(to: string, subject: string, html: string) {
-  if (!resend || process.env.NODE_ENV !== "production") {
+  if (!transporter || process.env.NODE_ENV !== "production") {
     // Dev mode: log the email content instead of sending
     console.log("\n--- [DEV EMAIL] ---");
     console.log("To:", to);
     console.log("Subject:", subject);
-    // Extract the URL from the HTML for easy clicking
     const urlMatch = html.match(/href="([^"]+)"/);
     if (urlMatch) {
       console.log("Link:", urlMatch[1]);
@@ -22,7 +30,7 @@ async function sendEmail(to: string, subject: string, html: string) {
     return;
   }
 
-  await resend.emails.send({ from: FROM_EMAIL, to, subject, html });
+  await transporter.sendMail({ from: FROM_EMAIL, to, subject, html });
 }
 
 export async function sendVerificationEmail(

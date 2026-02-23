@@ -6,7 +6,7 @@ const cspDirectives = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://storage.googleapis.com https://*.tile.openstreetmap.org https://picsum.photos https://i.pravatar.cc",
+  "img-src 'self' data: blob: https://storage.googleapis.com https://*.tile.openstreetmap.org",
   "font-src 'self'",
   "connect-src 'self' https://nominatim.openstreetmap.org https://*.tile.openstreetmap.org",
   "media-src 'self' blob:",
