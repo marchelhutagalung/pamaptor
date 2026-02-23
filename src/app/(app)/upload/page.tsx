@@ -438,7 +438,7 @@ export default function UploadPage() {
                   </div>
 
                   {/* Options */}
-                  <div className="max-h-48 overflow-y-auto">
+                  <div className="max-h-64 overflow-y-auto">
                     {filteredCategories.length === 0 ? (
                       <div className="px-3 py-3 text-gray-500 text-sm text-center">
                         Tidak ditemukan
