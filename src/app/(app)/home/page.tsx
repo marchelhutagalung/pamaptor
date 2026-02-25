@@ -24,6 +24,7 @@ export default async function HomePage() {
 
   const [initialPosts, categories] = await Promise.all([
     prisma.post.findMany({
+      where: { isDeleted: false },
       take: 20,
       orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
       include: {

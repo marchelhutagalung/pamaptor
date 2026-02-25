@@ -27,14 +27,27 @@ const PAGE_SIZE = 10;
 export default async function LaporanPage({
   searchParams,
 }: {
-  searchParams: { from?: string; to?: string; status?: string; page?: string };
+  searchParams: { q?: string; from?: string; to?: string; status?: string; page?: string };
 }) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "ADMIN") redirect("/home");
 
   const currentPage = Math.max(1, parseInt(searchParams.page || "1", 10) || 1);
 
-  const where: Prisma.PostWhereInput = {};
+  const where: Prisma.PostWhereInput = { isDeleted: false };
+
+  // Text search — matches reporter name, description, location, or category label
+  if (searchParams.q) {
+    const q = searchParams.q.trim();
+    if (q) {
+      where.OR = [
+        { user: { name: { contains: q, mode: "insensitive" } } },
+        { description: { contains: q, mode: "insensitive" } },
+        { locationText: { contains: q, mode: "insensitive" } },
+        { category: { label: { contains: q, mode: "insensitive" } } },
+      ];
+    }
+  }
 
   if (searchParams.from || searchParams.to) {
     where.createdAt = {
@@ -76,7 +89,7 @@ export default async function LaporanPage({
         where,
         _count: { categoryId: true },
       }),
-      prisma.post.count({ where: { isRead: false } }),
+      prisma.post.count({ where: { isRead: false, isDeleted: false } }),
       prisma.category.findMany({
         where: { isActive: true },
         orderBy: { order: "asc" },
@@ -98,6 +111,7 @@ export default async function LaporanPage({
   // Build URL helper that preserves filters
   const buildPageUrl = (page: number) => {
     const params = new URLSearchParams();
+    if (searchParams.q) params.set("q", searchParams.q);
     if (searchParams.from) params.set("from", searchParams.from);
     if (searchParams.to) params.set("to", searchParams.to);
     if (searchParams.status) params.set("status", searchParams.status);
@@ -124,7 +138,7 @@ export default async function LaporanPage({
         <p className="text-gray-400 text-sm">Pantau semua laporan masuk</p>
       </div>
 
-      {/* Chart */}
+      {/* Ringkasan Laporan */}
       <div className="mx-4 mb-4 p-4 bg-white/5 rounded-2xl border border-white/10">
         <div className="flex items-baseline justify-between mb-3">
           <p className="text-sm font-medium text-gray-400">Ringkasan Laporan</p>
@@ -147,7 +161,11 @@ export default async function LaporanPage({
       <div className="px-4 space-y-3 pb-4">
         {posts.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
-            <p className="text-sm">Tidak ada laporan yang sesuai filter</p>
+            <p className="text-sm">
+              {searchParams.q
+                ? `Tidak ada laporan untuk "${searchParams.q}"`
+                : "Tidak ada laporan yang sesuai filter"}
+            </p>
           </div>
         ) : (
           posts.map((post) => (

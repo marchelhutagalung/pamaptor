@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pin, PinOff } from "lucide-react";
+import { Pin, PinOff, Trash2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { STATUS_OPTIONS } from "@/lib/constants";
 
@@ -22,6 +22,8 @@ export default function ReportDetailActions({
   const [status, setStatus] = useState(currentStatus);
   const [pinned, setPinned] = useState(isPinned);
   const [isLoading, setIsLoading] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const update = async (data: { status?: string; isPinned?: boolean }) => {
     setIsLoading(true);
@@ -64,6 +66,38 @@ export default function ReportDetailActions({
   const handleStatusChange = (newStatus: string) => {
     if (newStatus !== status) {
       update({ status: newStatus });
+    }
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/reports/${postId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        toast({
+          title: "Laporan dihapus",
+          description: "Laporan telah dihapus dan tidak akan ditampilkan lagi.",
+        });
+        router.replace("/admin/laporan");
+        router.refresh();
+      } else {
+        toast({
+          title: "Gagal menghapus",
+          description: "Terjadi kesalahan. Silakan coba lagi.",
+          variant: "destructive",
+        });
+      }
+    } catch {
+      toast({
+        title: "Gagal menghapus",
+        description: "Periksa koneksi internet Anda.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setConfirmDelete(false);
     }
   };
 
@@ -125,6 +159,47 @@ export default function ReportDetailActions({
           </>
         )}
       </button>
+
+      {/* Delete */}
+      {!confirmDelete ? (
+        <button
+          onClick={() => setConfirmDelete(true)}
+          disabled={isLoading || isDeleting}
+          className="w-full h-12 rounded-xl border border-red-500/20 text-red-400 hover:bg-red-900/20 flex items-center justify-center gap-2 disabled:opacity-50 transition-colors"
+        >
+          <Trash2 className="w-4 h-4" />
+          <span className="text-sm font-medium">Hapus Laporan</span>
+        </button>
+      ) : (
+        <div className="p-4 rounded-xl border border-red-500/30 bg-red-900/20 space-y-3">
+          <p className="text-sm text-red-300 text-center">
+            Yakin ingin menghapus laporan ini?
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setConfirmDelete(false)}
+              disabled={isDeleting}
+              className="flex-1 h-10 rounded-xl border border-white/10 text-white text-sm hover:bg-white/10 transition-colors disabled:opacity-50"
+            >
+              Batal
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="flex-1 h-10 rounded-xl bg-red-600 text-white text-sm hover:bg-red-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isDeleting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4" />
+                  Hapus
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

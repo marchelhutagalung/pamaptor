@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   const from = searchParams.get("from");
   const to = searchParams.get("to");
 
-  const where: Prisma.PostWhereInput = {};
+  const where: Prisma.PostWhereInput = { isDeleted: false };
   if (from || to) {
     where.createdAt = {
       ...(from && { gte: new Date(from) }),

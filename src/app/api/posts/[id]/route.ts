@@ -9,8 +9,8 @@ export async function GET(
   const { error } = await requireSession();
   if (error) return error;
 
-  const post = await prisma.post.findUnique({
-    where: { id: params.id },
+  const post = await prisma.post.findFirst({
+    where: { id: params.id, isDeleted: false },
     include: {
       category: { select: { id: true, slug: true, label: true, color: true } },
       user: {

@@ -22,7 +22,7 @@ export default async function ProfilePage() {
       select: { id: true, name: true, selfieUrl: true, phone: true },
     }),
     prisma.post.findMany({
-      where: { userId: session.user.id },
+      where: { userId: session.user.id, isDeleted: false },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
