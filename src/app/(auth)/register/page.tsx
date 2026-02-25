@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -13,7 +14,12 @@ const registerSchema = z
   .object({
     name: z.string().min(2, "Nama minimal 2 karakter"),
     email: z.string().email("Format email tidak valid"),
-    phone: z.string().optional(),
+    phone: z
+      .string()
+      .optional()
+      .refine((val) => !val || /^\+?[0-9]+$/.test(val), {
+        message: "Nomor HP hanya boleh berisi angka dan tanda +",
+      }),
     password: z.string().min(8, "Password minimal 8 karakter"),
     confirmPassword: z.string(),
     role: z.enum(["Masyarakat", "Petugas"]),
@@ -40,6 +46,9 @@ export default function RegisterPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [showSecret, setShowSecret] = useState(false);
 
   const {
     register,
@@ -162,16 +171,29 @@ export default function RegisterPage() {
             placeholder="Nomor HP (opsional)"
             className={inputClass}
           />
+          {errors.phone && (
+            <p className="text-red-400 text-xs mt-1">{errors.phone.message}</p>
+          )}
         </div>
 
         <div>
-          <Input
-            {...register("password")}
-            type="password"
-            placeholder="Password (min. 8 karakter)"
-            className={inputClass}
-            autoComplete="new-password"
-          />
+          <div className="relative">
+            <Input
+              {...register("password")}
+              type={showPassword ? "text" : "password"}
+              placeholder="Password (min. 8 karakter)"
+              className={inputClass + " pr-12"}
+              autoComplete="new-password"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
           {errors.password && (
             <p className="text-red-400 text-xs mt-1">
               {errors.password.message}
@@ -180,13 +202,23 @@ export default function RegisterPage() {
         </div>
 
         <div>
-          <Input
-            {...register("confirmPassword")}
-            type="password"
-            placeholder="Konfirmasi password"
-            className={inputClass}
-            autoComplete="new-password"
-          />
+          <div className="relative">
+            <Input
+              {...register("confirmPassword")}
+              type={showConfirm ? "text" : "password"}
+              placeholder="Konfirmasi password"
+              className={inputClass + " pr-12"}
+              autoComplete="new-password"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirm((v) => !v)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              tabIndex={-1}
+            >
+              {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
           {errors.confirmPassword && (
             <p className="text-red-400 text-xs mt-1">
               {errors.confirmPassword.message}
@@ -197,13 +229,23 @@ export default function RegisterPage() {
         {/* Secret field — only shown for Petugas */}
         {selectedRole === "Petugas" && (
           <div>
-            <Input
-              {...register("secret")}
-              type="password"
-              placeholder="Kode akses petugas"
-              className={inputClass}
-              autoComplete="off"
-            />
+            <div className="relative">
+              <Input
+                {...register("secret")}
+                type={showSecret ? "text" : "password"}
+                placeholder="Kode akses petugas"
+                className={inputClass + " pr-12"}
+                autoComplete="off"
+              />
+              <button
+                type="button"
+                onClick={() => setShowSecret((v) => !v)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                tabIndex={-1}
+              >
+                {showSecret ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
             {errors.secret && (
               <p className="text-red-400 text-xs mt-1">
                 {errors.secret.message}

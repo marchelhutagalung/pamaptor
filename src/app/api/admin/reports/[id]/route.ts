@@ -91,3 +91,31 @@ export async function PATCH(
 
   return NextResponse.json(post);
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const { error } = await requireAdmin();
+  if (error) return error;
+
+  const existing = await prisma.post.findUnique({
+    where: { id: params.id },
+    select: { id: true, isDeleted: true },
+  });
+
+  if (!existing) {
+    return NextResponse.json({ error: "Laporan tidak ditemukan" }, { status: 404 });
+  }
+
+  // Soft delete — set isDeleted flag instead of removing from DB
+  await prisma.post.update({
+    where: { id: params.id },
+    data: { isDeleted: true, isPinned: false },
+  });
+
+  revalidatePath("/home");
+  revalidatePath("/admin/laporan");
+
+  return NextResponse.json({ success: true });
+}

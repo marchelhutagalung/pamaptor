@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
     take: limit + 1,
     ...(cursor && { cursor: { id: cursor }, skip: 1 }),
     where: {
+      isDeleted: false,
       ...(categoryId ? { categoryId } : {}),
     },
     orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],

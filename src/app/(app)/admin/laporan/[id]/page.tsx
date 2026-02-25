@@ -30,8 +30,8 @@ export default async function ReportDetailPage({
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "ADMIN") redirect("/home");
 
-  const post = await prisma.post.findUnique({
-    where: { id: params.id },
+  const post = await prisma.post.findFirst({
+    where: { id: params.id, isDeleted: false },
     include: {
       category: { select: { id: true, slug: true, label: true, color: true } },
       user: {

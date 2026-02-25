@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -24,6 +25,7 @@ function LoginForm() {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [role, setRole] = useState<"Masyarakat" | "Petugas">("Masyarakat");
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("verified") === "true") {
@@ -146,13 +148,23 @@ function LoginForm() {
         </div>
 
         <div>
-          <Input
-            {...register("password")}
-            type="password"
-            placeholder="Kata sandi"
-            className="bg-white/10 border-white/10 text-white placeholder:text-gray-500 h-14 rounded-xl"
-            autoComplete="current-password"
-          />
+          <div className="relative">
+            <Input
+              {...register("password")}
+              type={showPassword ? "text" : "password"}
+              placeholder="Kata sandi"
+              className="bg-white/10 border-white/10 text-white placeholder:text-gray-500 h-14 rounded-xl pr-12"
+              autoComplete="current-password"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
           {errors.password && (
             <p className="text-red-400 text-xs mt-1">
               {errors.password.message}

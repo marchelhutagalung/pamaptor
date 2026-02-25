@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   const to = searchParams.get("to");
   const status = searchParams.get("status");
 
-  const where: Prisma.PostWhereInput = {};
+  const where: Prisma.PostWhereInput = { isDeleted: false };
 
   if (from || to) {
     where.createdAt = {
@@ -46,9 +46,10 @@ export async function GET(request: NextRequest) {
     }),
     prisma.post.groupBy({
       by: ["categoryId"],
+      where: { isDeleted: false },
       _count: { categoryId: true },
     }),
-    prisma.post.count({ where: { status: "HANYA_INFORMASI" } }),
+    prisma.post.count({ where: { status: "HANYA_INFORMASI", isDeleted: false } }),
     prisma.category.findMany({ where: { isActive: true }, orderBy: { order: "asc" } }),
   ]);
 

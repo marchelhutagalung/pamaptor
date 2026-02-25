@@ -47,7 +47,7 @@ export async function POST(
     }
 
     // Verify post exists
-    const post = await prisma.post.findUnique({ where: { id: params.id } });
+    const post = await prisma.post.findFirst({ where: { id: params.id, isDeleted: false } });
     if (!post) {
       return NextResponse.json(
         { error: "Laporan tidak ditemukan" },

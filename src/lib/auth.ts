@@ -10,7 +10,7 @@ export const authOptions: NextAuthOptions = {
     error: "/login",
   },
   callbacks: {
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user }) {
       // On initial sign-in, populate token from user object
       if (user) {
         token.id = user.id;
@@ -18,8 +18,8 @@ export const authOptions: NextAuthOptions = {
         token.selfieUrl = (user as { selfieUrl?: string }).selfieUrl;
       }
 
-      // On session update (e.g. after selfie upload), re-fetch from DB
-      if (trigger === "update") {
+      // Always re-fetch from DB so selfieUrl / name / role stay in sync
+      if (token.id) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
           select: { selfieUrl: true, name: true, role: true },
