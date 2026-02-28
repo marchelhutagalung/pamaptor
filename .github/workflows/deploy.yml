@@ -1,0 +1,66 @@
+name: Build & Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGION: asia-southeast2
+  IMAGE: asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/pamaptor/pamaptor
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker auth
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build & push Docker image
+        run: |
+          docker build \
+            --tag ${{ env.IMAGE }}:${{ github.sha }} \
+            --tag ${{ env.IMAGE }}:latest \
+            .
+          docker push ${{ env.IMAGE }}:${{ github.sha }}
+          docker push ${{ env.IMAGE }}:latest
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy pamaptor \
+            --image=${{ env.IMAGE }}:${{ github.sha }} \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --service-account=pamaptor-cloudrun@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
+            --add-cloudsql-instances=${{ secrets.GCP_PROJECT_ID }}:${{ env.REGION }}:pamaptor-db \
+            --set-secrets="\
+              DATABASE_URL=DATABASE_URL:latest,\
+              NEXTAUTH_SECRET=NEXTAUTH_SECRET:latest,\
+              NEXTAUTH_URL=NEXTAUTH_URL:latest,\
+              NEXT_PUBLIC_APP_URL=NEXT_PUBLIC_APP_URL:latest,\
+              GCP_PROJECT_ID=GCP_PROJECT_ID:latest,\
+              GCS_BUCKET_NAME=GCS_BUCKET_NAME:latest,\
+              SMTP_HOST=SMTP_HOST:latest,\
+              SMTP_PORT=SMTP_PORT:latest,\
+              SMTP_USER=SMTP_USER:latest,\
+              SMTP_PASS=SMTP_PASS:latest,\
+              SMTP_FROM=SMTP_FROM:latest,\
+              ADMIN_REGISTER_SECRET=ADMIN_REGISTER_SECRET:latest" \
+            --allow-unauthenticated \
+            --min-instances=0 \
+            --max-instances=10 \
+            --memory=512Mi \
+            --cpu=1 \
+            --port=8080 \
+            --timeout=60s

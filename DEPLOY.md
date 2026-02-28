@@ -1,432 +1,457 @@
-# GCP Deployment Guide — Pamaptor
+# 🚀 Pamaptor — GCP Deployment Guide
 
-Target stack: **Cloud Run** + **Cloud SQL (PostgreSQL 15)** + **Cloud Storage** + **Nodemailer SMTP**
+## Architecture Overview
+
+```
+GitHub ──push──► GitHub Actions ──build/push──► Artifact Registry
+                                                        │
+                                                   Cloud Run  ◄──── Secret Manager (env vars)
+                                                        │
+                                               Cloud SQL (PostgreSQL)
+                                               GCS Bucket (media/selfie)
+
+pamaptor.com ──► Cloudflare (CDN + DNS + SSL) ──► Cloud Run URL
+                                                        │
+                                            Hostinger SMTP (email)
+```
+
+**Why Cloudflare for CDN instead of Google Cloud CDN?**
+Google Cloud CDN requires a Load Balancer (~$18/month fixed cost). Cloudflare free tier gives
+you global CDN, DDoS protection, and auto SSL at $0 — the better choice for cost reduction.
 
 ---
 
-## Prerequisites
-
-Before starting, make sure you have:
-
-- A GCP project created — note your `PROJECT_ID`
-- [`gcloud` CLI](https://cloud.google.com/sdk/docs/install) installed and authenticated
-- Docker installed locally (only if building locally — optional)
-- A Gmail account for sending emails
+## Prerequisites — Install tools locally
 
 ```bash
-# Authenticate
-gcloud auth login
+# Install Google Cloud CLI
+brew install google-cloud-sdk        # macOS
+# or visit: https://cloud.google.com/sdk/docs/install
 
-# Set your project (replace with your real project ID)
-export PROJECT_ID="your-gcp-project-id"
-gcloud config set project $PROJECT_ID
+# Install Docker Desktop
+# https://docs.docker.com/desktop/install/mac-install/
 
-# Enable required APIs
-gcloud services enable \
-  sqladmin.googleapis.com \
-  run.googleapis.com \
-  artifactregistry.googleapis.com \
-  cloudbuild.googleapis.com
+# Verify
+gcloud --version
+docker --version
 ```
 
 ---
 
-## Step 1 — Cloud SQL (PostgreSQL)
+## Phase 1 — GCP Project Setup
+
+### 1.1 Create & configure GCP project
 
 ```bash
-# Create instance (db-f1-micro = cheapest tier, ~$7/month, always-on)
+# Login to GCP
+gcloud auth login
+
+# Create new project  (replace pamaptor-prod with your preferred project ID)
+gcloud projects create pamaptor-prod --name="Pamaptor"
+
+# Set as default project
+gcloud config set project pamaptor-prod
+
+# Link billing account (required for Cloud Run + Cloud SQL)
+# Go to: https://console.cloud.google.com/billing
+# Link the billing account to pamaptor-prod
+```
+
+### 1.2 Enable required APIs
+
+```bash
+gcloud services enable \
+  run.googleapis.com \
+  sqladmin.googleapis.com \
+  artifactregistry.googleapis.com \
+  secretmanager.googleapis.com \
+  cloudresourcemanager.googleapis.com \
+  iam.googleapis.com
+```
+
+---
+
+## Phase 2 — Cloud SQL (PostgreSQL)
+
+### 2.1 Create the database instance
+
+```bash
+# db-f1-micro is the cheapest tier (~$10/month)
 gcloud sql instances create pamaptor-db \
   --database-version=POSTGRES_15 \
   --tier=db-f1-micro \
   --region=asia-southeast2 \
-  --storage-size=10GB \
-  --storage-auto-increase
+  --storage-auto-increase \
+  --storage-size=10GB
 
-# Create the database
+# Note down the connection name — you will need it in Phase 5
+gcloud sql instances describe pamaptor-db --format="value(connectionName)"
+# Example output: pamaptor-prod:asia-southeast2:pamaptor-db
+```
+
+### 2.2 Create database and user
+
+```bash
+# Create database
 gcloud sql databases create pamaptor --instance=pamaptor-db
 
-# Create a user (replace CHANGE_THIS_PASSWORD with something strong)
+# Create app user  (replace YOUR_DB_PASSWORD with a strong password)
 gcloud sql users create pamaptor_user \
   --instance=pamaptor-db \
-  --password=CHANGE_THIS_PASSWORD
+  --password=YOUR_DB_PASSWORD
 ```
 
-Your `DATABASE_URL` for Cloud Run (Unix socket format):
-```
-postgresql://pamaptor_user:CHANGE_THIS_PASSWORD@/pamaptor?host=/cloudsql/PROJECT_ID:asia-southeast2:pamaptor-db
-```
+### 2.3 DATABASE_URL format for Cloud Run
 
-> 💡 Save this value — you'll need it in Steps 7, 8, and 9.
+Cloud Run connects to PostgreSQL via Unix socket (not TCP). Use this format:
+
+```
+postgresql://pamaptor_user:YOUR_DB_PASSWORD@localhost/pamaptor?host=/cloudsql/pamaptor-prod:asia-southeast2:pamaptor-db
+```
 
 ---
 
-## Step 2 — Cloud Storage (media uploads)
+## Phase 3 — GCS Bucket (Media Storage)
 
 ```bash
-# Create bucket
-gsutil mb -p $PROJECT_ID -c STANDARD -l ASIA-SOUTHEAST2 gs://pamaptor-media
+# Create bucket in the same region
+gcloud storage buckets create gs://pamaptor-media \
+  --location=asia-southeast2 \
+  --uniform-bucket-level-access
 
-# Enable uniform bucket-level access
-gsutil uniformbucketlevelaccess set on gs://pamaptor-media
-
-# Make bucket publicly readable (so users can view uploaded images)
-gsutil iam ch allUsers:objectViewer gs://pamaptor-media
+# Allow public read for post images and selfies
+gcloud storage buckets add-iam-policy-binding gs://pamaptor-media \
+  --member=allUsers \
+  --role=roles/storage.objectViewer
 ```
-
-> After deploying in Step 9, come back here to set CORS (see Step 9b).
 
 ---
 
-## Step 3 — Service Account
+## Phase 4 — Service Accounts & IAM
+
+### 4.1 Cloud Run service account (runtime identity)
 
 ```bash
-# Create service account for the app
-gcloud iam service-accounts create pamaptor-app \
-  --display-name="Pamaptor App"
+gcloud iam service-accounts create pamaptor-cloudrun \
+  --display-name="Pamaptor Cloud Run SA"
 
-# Grant Cloud SQL access
-gcloud projects add-iam-policy-binding $PROJECT_ID \
-  --member="serviceAccount:pamaptor-app@${PROJECT_ID}.iam.gserviceaccount.com" \
+# Cloud SQL
+gcloud projects add-iam-policy-binding pamaptor-prod \
+  --member="serviceAccount:pamaptor-cloudrun@pamaptor-prod.iam.gserviceaccount.com" \
   --role="roles/cloudsql.client"
 
-# Grant Storage access (scoped to the bucket only)
-gsutil iam ch \
-  serviceAccount:pamaptor-app@${PROJECT_ID}.iam.gserviceaccount.com:roles/storage.objectAdmin \
-  gs://pamaptor-media
+# GCS
+gcloud projects add-iam-policy-binding pamaptor-prod \
+  --member="serviceAccount:pamaptor-cloudrun@pamaptor-prod.iam.gserviceaccount.com" \
+  --role="roles/storage.objectAdmin"
+
+# Secret Manager
+gcloud projects add-iam-policy-binding pamaptor-prod \
+  --member="serviceAccount:pamaptor-cloudrun@pamaptor-prod.iam.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
 ```
 
----
-
-## Step 4 — Gmail SMTP Setup
-
-1. Go to https://myaccount.google.com/security
-2. Enable **2-Step Verification** if not already on
-3. Go to https://myaccount.google.com/apppasswords
-4. Create an App Password → name it `Pamaptor`
-5. Copy the 16-character password (format: `xxxx xxxx xxxx xxxx`)
-
-Your SMTP env vars will be:
-```
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=yourname@gmail.com
-SMTP_PASS=xxxx xxxx xxxx xxxx
-SMTP_FROM=Pamaptor <yourname@gmail.com>
-```
-
-> Gmail free tier allows **500 emails/day** — enough for ~200 users.
-
----
-
-## Step 5 — Generate Secrets
+### 4.2 GitHub Actions service account (CI/CD deploy identity)
 
 ```bash
-# NextAuth secret (run this, copy the output)
-openssl rand -base64 32
+gcloud iam service-accounts create pamaptor-github-actions \
+  --display-name="Pamaptor GitHub Actions SA"
 
-# Admin registration secret (run this, copy the output)
-openssl rand -hex 24
+# Push Docker images
+gcloud projects add-iam-policy-binding pamaptor-prod \
+  --member="serviceAccount:pamaptor-github-actions@pamaptor-prod.iam.gserviceaccount.com" \
+  --role="roles/artifactregistry.writer"
+
+# Deploy Cloud Run
+gcloud projects add-iam-policy-binding pamaptor-prod \
+  --member="serviceAccount:pamaptor-github-actions@pamaptor-prod.iam.gserviceaccount.com" \
+  --role="roles/run.admin"
+
+# Allow deploying as the Cloud Run SA
+gcloud iam service-accounts add-iam-policy-binding \
+  pamaptor-cloudrun@pamaptor-prod.iam.gserviceaccount.com \
+  --member="serviceAccount:pamaptor-github-actions@pamaptor-prod.iam.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountUser"
+
+# Download JSON key — copy the output into GitHub Secrets (next phase)
+gcloud iam service-accounts keys create gha-key.json \
+  --iam-account=pamaptor-github-actions@pamaptor-prod.iam.gserviceaccount.com
+
+cat gha-key.json
+# ⚠️ Delete the file after copying: rm gha-key.json
 ```
-
-Save both values — you'll use them in Step 9.
 
 ---
 
-## Step 6 — Build & Push Docker Image
+## Phase 5 — Secret Manager (Environment Variables)
 
 ```bash
-# Create Artifact Registry repository (one-time setup)
+# Run each line, replacing placeholder values with real ones
+
+# Generate NEXTAUTH_SECRET:  openssl rand -base64 32
+# Generate ADMIN_REGISTER_SECRET:  openssl rand -hex 24
+
+echo -n "YOUR_NEXTAUTH_SECRET"     | gcloud secrets create NEXTAUTH_SECRET --data-file=- --replication-policy=automatic
+echo -n "https://pamaptor.com"     | gcloud secrets create NEXTAUTH_URL --data-file=- --replication-policy=automatic
+echo -n "https://pamaptor.com"     | gcloud secrets create NEXT_PUBLIC_APP_URL --data-file=- --replication-policy=automatic
+
+# Use the DATABASE_URL from Phase 2.3
+echo -n "postgresql://pamaptor_user:YOUR_DB_PASSWORD@localhost/pamaptor?host=/cloudsql/pamaptor-prod:asia-southeast2:pamaptor-db" \
+  | gcloud secrets create DATABASE_URL --data-file=- --replication-policy=automatic
+
+echo -n "pamaptor-prod"            | gcloud secrets create GCP_PROJECT_ID --data-file=- --replication-policy=automatic
+echo -n "pamaptor-media"           | gcloud secrets create GCS_BUCKET_NAME --data-file=- --replication-policy=automatic
+
+# Hostinger SMTP — get credentials from:
+# Hostinger dashboard → Emails → Manage → Mail settings
+echo -n "smtp.hostinger.com"                   | gcloud secrets create SMTP_HOST --data-file=- --replication-policy=automatic
+echo -n "587"                                  | gcloud secrets create SMTP_PORT --data-file=- --replication-policy=automatic
+echo -n "noreply@pamaptor.com"                 | gcloud secrets create SMTP_USER --data-file=- --replication-policy=automatic
+echo -n "YOUR_HOSTINGER_EMAIL_PASSWORD"        | gcloud secrets create SMTP_PASS --data-file=- --replication-policy=automatic
+echo -n "Pamaptor <noreply@pamaptor.com>"      | gcloud secrets create SMTP_FROM --data-file=- --replication-policy=automatic
+
+echo -n "YOUR_ADMIN_REGISTER_SECRET"           | gcloud secrets create ADMIN_REGISTER_SECRET --data-file=- --replication-policy=automatic
+```
+
+---
+
+## Phase 6 — Artifact Registry (Docker Image Repo)
+
+```bash
 gcloud artifacts repositories create pamaptor \
   --repository-format=docker \
-  --location=asia-southeast2
+  --location=asia-southeast2 \
+  --description="Pamaptor Docker images"
 
-# Build and push via Cloud Build (recommended — no local Docker needed)
-gcloud builds submit \
-  --tag asia-southeast2-docker.pkg.dev/${PROJECT_ID}/pamaptor/app:latest
-
-# ── OR build locally and push ──────────────────────────────────────────────
-docker build -t asia-southeast2-docker.pkg.dev/${PROJECT_ID}/pamaptor/app:latest .
-docker push asia-southeast2-docker.pkg.dev/${PROJECT_ID}/pamaptor/app:latest
+# Authorize local Docker to push
+gcloud auth configure-docker asia-southeast2-docker.pkg.dev
 ```
 
 ---
 
-## Step 7 — Run Database Migrations
+## Phase 7 — GitHub Actions CI/CD
+
+### 7.1 Add secrets to your GitHub repository
+
+Go to: **GitHub repo → Settings → Secrets and variables → Actions → New repository secret**
+
+| Secret Name | Value |
+|---|---|
+| `GCP_SA_KEY` | Full JSON content of `gha-key.json` from Phase 4.2 |
+| `GCP_PROJECT_ID` | `pamaptor-prod` |
+
+### 7.2 Create the workflow file
+
+Create `.github/workflows/deploy.yml` in your project:
+
+```yaml
+name: Build & Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGION: asia-southeast2
+  IMAGE: asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/pamaptor/pamaptor
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker auth
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build & push Docker image
+        run: |
+          docker build \
+            --tag ${{ env.IMAGE }}:${{ github.sha }} \
+            --tag ${{ env.IMAGE }}:latest \
+            .
+          docker push ${{ env.IMAGE }}:${{ github.sha }}
+          docker push ${{ env.IMAGE }}:latest
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy pamaptor \
+            --image=${{ env.IMAGE }}:${{ github.sha }} \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --service-account=pamaptor-cloudrun@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
+            --add-cloudsql-instances=${{ secrets.GCP_PROJECT_ID }}:${{ env.REGION }}:pamaptor-db \
+            --set-secrets="\
+              DATABASE_URL=DATABASE_URL:latest,\
+              NEXTAUTH_SECRET=NEXTAUTH_SECRET:latest,\
+              NEXTAUTH_URL=NEXTAUTH_URL:latest,\
+              NEXT_PUBLIC_APP_URL=NEXT_PUBLIC_APP_URL:latest,\
+              GCP_PROJECT_ID=GCP_PROJECT_ID:latest,\
+              GCS_BUCKET_NAME=GCS_BUCKET_NAME:latest,\
+              SMTP_HOST=SMTP_HOST:latest,\
+              SMTP_PORT=SMTP_PORT:latest,\
+              SMTP_USER=SMTP_USER:latest,\
+              SMTP_PASS=SMTP_PASS:latest,\
+              SMTP_FROM=SMTP_FROM:latest,\
+              ADMIN_REGISTER_SECRET=ADMIN_REGISTER_SECRET:latest" \
+            --allow-unauthenticated \
+            --min-instances=0 \
+            --max-instances=10 \
+            --memory=512Mi \
+            --cpu=1 \
+            --port=8080 \
+            --timeout=60s
+```
+
+### 7.3 Run Prisma migration (first deploy only)
 
 ```bash
-# Create a one-off Cloud Run Job for migrations
+# Create a one-off Cloud Run Job for the migration
 gcloud run jobs create pamaptor-migrate \
-  --image asia-southeast2-docker.pkg.dev/${PROJECT_ID}/pamaptor/app:latest \
-  --command "npx" \
-  --args "prisma,migrate,deploy" \
-  --region asia-southeast2 \
-  --set-env-vars "DATABASE_URL=postgresql://pamaptor_user:CHANGE_THIS_PASSWORD@/pamaptor?host=/cloudsql/${PROJECT_ID}:asia-southeast2:pamaptor-db" \
-  --add-cloudsql-instances ${PROJECT_ID}:asia-southeast2:pamaptor-db \
-  --service-account pamaptor-app@${PROJECT_ID}.iam.gserviceaccount.com
+  --image=asia-southeast2-docker.pkg.dev/pamaptor-prod/pamaptor/pamaptor:latest \
+  --region=asia-southeast2 \
+  --service-account=pamaptor-cloudrun@pamaptor-prod.iam.gserviceaccount.com \
+  --add-cloudsql-instances=pamaptor-prod:asia-southeast2:pamaptor-db \
+  --set-secrets="DATABASE_URL=DATABASE_URL:latest" \
+  --command="npx" \
+  --args="prisma,migrate,deploy"
 
-# Execute the migration job
-gcloud run jobs execute pamaptor-migrate --region asia-southeast2 --wait
+# Run it
+gcloud run jobs execute pamaptor-migrate --region=asia-southeast2 --wait
 ```
 
 ---
 
-## Step 8 — Seed Categories (one-time)
+## Phase 8 — Domain + CDN via Cloudflare (Free)
 
-This seeds all 34 incident categories + "Lainnya" into the database.
+### 8.1 Add pamaptor.com to Cloudflare
 
-```bash
-# Create a one-off Cloud Run Job for seeding
-gcloud run jobs create pamaptor-seed \
-  --image asia-southeast2-docker.pkg.dev/${PROJECT_ID}/pamaptor/app:latest \
-  --command "npx" \
-  --args "ts-node,--compiler-options,{\"module\":\"CommonJS\"},prisma/seed.ts" \
-  --region asia-southeast2 \
-  --set-env-vars "DATABASE_URL=postgresql://pamaptor_user:CHANGE_THIS_PASSWORD@/pamaptor?host=/cloudsql/${PROJECT_ID}:asia-southeast2:pamaptor-db" \
-  --add-cloudsql-instances ${PROJECT_ID}:asia-southeast2:pamaptor-db \
-  --service-account pamaptor-app@${PROJECT_ID}.iam.gserviceaccount.com
+1. Go to [cloudflare.com](https://cloudflare.com) → sign up / log in
+2. Click **Add a site** → enter `pamaptor.com` → choose **Free plan**
+3. Cloudflare will scan existing DNS records — keep your Hostinger **MX** and **TXT** records
+4. Note the **2 Cloudflare nameservers** shown (e.g. `ada.ns.cloudflare.com`)
 
-# Execute the seed job
-gcloud run jobs execute pamaptor-seed --region asia-southeast2 --wait
-```
+### 8.2 Update nameservers at your domain registrar
 
-> ✅ The seed uses `upsert` — safe to re-run anytime without creating duplicates.
-> If categories are updated in `prisma/seed.ts`, rebuild the image (Step 6) and re-run this job.
+1. Log in to wherever you bought `pamaptor.com`
+2. Find **DNS / Nameservers settings**
+3. Replace all existing nameservers with the 2 Cloudflare ones
+4. Save — propagation takes 5–30 minutes
 
----
+### 8.3 Get your Cloud Run URL
 
-## Step 9 — Deploy to Cloud Run
-
-```bash
-gcloud run deploy pamaptor \
-  --image asia-southeast2-docker.pkg.dev/${PROJECT_ID}/pamaptor/app:latest \
-  --platform managed \
-  --region asia-southeast2 \
-  --allow-unauthenticated \
-  --add-cloudsql-instances ${PROJECT_ID}:asia-southeast2:pamaptor-db \
-  --service-account pamaptor-app@${PROJECT_ID}.iam.gserviceaccount.com \
-  --set-env-vars "NODE_ENV=production" \
-  --set-env-vars "DATABASE_URL=postgresql://pamaptor_user:CHANGE_THIS_PASSWORD@/pamaptor?host=/cloudsql/${PROJECT_ID}:asia-southeast2:pamaptor-db" \
-  --set-env-vars "NEXTAUTH_URL=https://PLACEHOLDER.run.app" \
-  --set-env-vars "NEXTAUTH_SECRET=YOUR_NEXTAUTH_SECRET" \
-  --set-env-vars "NEXT_PUBLIC_APP_URL=https://PLACEHOLDER.run.app" \
-  --set-env-vars "GCS_BUCKET_NAME=pamaptor-media" \
-  --set-env-vars "GCP_PROJECT_ID=${PROJECT_ID}" \
-  --set-env-vars "SMTP_HOST=smtp.gmail.com" \
-  --set-env-vars "SMTP_PORT=587" \
-  --set-env-vars "SMTP_USER=yourname@gmail.com" \
-  --set-env-vars "SMTP_PASS=xxxx xxxx xxxx xxxx" \
-  --set-env-vars "SMTP_FROM=Pamaptor <yourname@gmail.com>" \
-  --set-env-vars "ADMIN_REGISTER_SECRET=YOUR_ADMIN_SECRET" \
-  --min-instances 0 \
-  --max-instances 3 \
-  --memory 512Mi \
-  --cpu 1 \
-  --timeout 60
-```
-
-### Step 9b — Update URL & CORS after first deploy
-
-After deploy, get the real Cloud Run URL:
 ```bash
 gcloud run services describe pamaptor \
-  --region asia-southeast2 \
-  --format='value(status.url)'
-# Example output: https://pamaptor-xxxxxxxx-et.a.run.app
+  --region=asia-southeast2 \
+  --format="value(status.url)"
+# Output: https://pamaptor-xxxxxxxxxx-et.a.run.app
 ```
 
-Update the env vars with the real URL:
-```bash
-gcloud run services update pamaptor \
-  --region asia-southeast2 \
-  --set-env-vars "NEXTAUTH_URL=https://pamaptor-xxxxxxxx-et.a.run.app" \
-  --set-env-vars "NEXT_PUBLIC_APP_URL=https://pamaptor-xxxxxxxx-et.a.run.app"
-```
+### 8.4 Add DNS records in Cloudflare
 
-Set CORS on the GCS bucket:
-```bash
-cat > /tmp/cors.json << 'EOF'
-[
-  {
-    "origin": ["https://pamaptor-xxxxxxxx-et.a.run.app"],
-    "method": ["GET"],
-    "maxAgeSeconds": 3600
-  }
-]
-EOF
+Go to Cloudflare → **DNS** tab → add these records:
 
-gsutil cors set /tmp/cors.json gs://pamaptor-media
-```
+| Type | Name | Content | Proxy status |
+|---|---|---|---|
+| `CNAME` | `@` | `pamaptor-xxxxxxxxxx-et.a.run.app` | ✅ Proxied (orange cloud) |
+| `CNAME` | `www` | `pamaptor.com` | ✅ Proxied (orange cloud) |
+| `MX` | `@` | *(keep all Hostinger MX records)* | ⬜ DNS only (grey cloud) |
+| `TXT` | `@` | *(keep all Hostinger SPF/DKIM TXT records)* | ⬜ DNS only (grey cloud) |
 
----
+> ⚠️ MX and TXT records for email **must** stay as DNS only (grey cloud).
+> Setting them to Proxied will break your Hostinger email.
 
-## Step 10 — Create First Admin Account
+### 8.5 Configure Cloudflare SSL & CDN
 
-1. Open `https://YOUR_CLOUDRUN_URL/register-admin`
-2. Fill in your name, email, and password
-3. Enter the `ADMIN_REGISTER_SECRET` you generated in Step 5
-4. Check your email for a verification link and click it
-5. You're now logged in as admin ✅
+In Cloudflare Dashboard:
 
----
+**SSL/TLS:**
+- Mode → **Full (strict)**
 
-## Step 11 — Custom Domain (optional)
+**Caching → Cache Rules → Create rule #1** (static assets):
+- Expression: `http.request.uri.path contains "/_next/static/"`
+- Cache setting: Cache Everything / Edge TTL: 1 month
 
-### 11a. Buy a domain
+**Caching → Cache Rules → Create rule #2** (GCS media):
+- Expression: `http.request.full_uri contains "storage.googleapis.com/pamaptor-media"`
+- Cache setting: Cache Everything / Edge TTL: 1 week
 
-Purchase from any registrar (Niagahoster, Namecheap, Cloudflare, etc.)
+**Speed → Optimization:**
+- Enable Auto Minify: JS ✅ CSS ✅ HTML ✅
 
-### 11b. Map domain to Cloud Run
+### 8.6 Map custom domain to Cloud Run
 
 ```bash
 gcloud run domain-mappings create \
-  --service pamaptor \
-  --domain pamaptor.com \
-  --region asia-southeast2
-```
-
-GCP will output DNS records to add at your registrar:
-
-| Type | Name | Value |
-|------|------|-------|
-| A | @ | `(IP from gcloud output)` |
-| AAAA | @ | `(IPv6 from gcloud output)` |
-| CNAME | www | `ghs.googlehosted.com.` |
-
-> SSL certificate is provisioned automatically by Google (may take 15–30 min after DNS propagates).
-
-After DNS propagates, update env vars:
-```bash
-gcloud run services update pamaptor \
-  --region asia-southeast2 \
-  --set-env-vars "NEXTAUTH_URL=https://pamaptor.com" \
-  --set-env-vars "NEXT_PUBLIC_APP_URL=https://pamaptor.com"
-```
-
-Also update the CORS origin on the GCS bucket (Step 9b) with the custom domain.
-
-### 11c. Custom email domain — `noreply@pamaptor.com` (optional)
-
-Use **Zoho Mail** (free for up to 5 users):
-
-1. Sign up at https://www.zoho.com/mail/ (free plan)
-2. Add and verify `pamaptor.com` as your domain
-3. Create mailbox: `noreply@pamaptor.com`
-4. Add these DNS records at your registrar:
-
-```
-# MX records (required for domain verification)
-MX  @  mx.zoho.com   (priority 10)
-MX  @  mx2.zoho.com  (priority 20)
-MX  @  mx3.zoho.com  (priority 50)
-
-# SPF — authorizes Zoho to send on your behalf
-TXT  @  "v=spf1 include:zoho.com ~all"
-
-# DKIM — email signature (Zoho generates the key value for you)
-TXT  zmail._domainkey  "v=DKIM1; k=rsa; p=YOUR_KEY_FROM_ZOHO"
-
-# DMARC — policy for failed email auth
-TXT  _dmarc  "v=DMARC1; p=quarantine; rua=mailto:admin@pamaptor.com"
-```
-
-5. Update SMTP env vars to use Zoho:
-```bash
-gcloud run services update pamaptor \
-  --region asia-southeast2 \
-  --set-env-vars "SMTP_HOST=smtp.zoho.com" \
-  --set-env-vars "SMTP_PORT=587" \
-  --set-env-vars "SMTP_USER=noreply@pamaptor.com" \
-  --set-env-vars "SMTP_PASS=your-zoho-password" \
-  --set-env-vars "SMTP_FROM=Pamaptor <noreply@pamaptor.com>"
-```
-
-> Zoho free tier: **50 emails/day** — sufficient for registration + password resets at ~200 users.
-
----
-
-## Redeployment (for updates)
-
-Every time you push code changes:
-
-```bash
-# 1. Build and push new image
-gcloud builds submit \
-  --tag asia-southeast2-docker.pkg.dev/${PROJECT_ID}/pamaptor/app:latest
-
-# 2. Run migrations if you changed prisma/schema.prisma
-gcloud run jobs execute pamaptor-migrate --region asia-southeast2 --wait
-
-# 3. Re-seed if you updated prisma/seed.ts (categories, etc.)
-gcloud run jobs execute pamaptor-seed --region asia-southeast2 --wait
-
-# 4. Deploy new revision
-gcloud run deploy pamaptor \
-  --image asia-southeast2-docker.pkg.dev/${PROJECT_ID}/pamaptor/app:latest \
-  --region asia-southeast2
+  --service=pamaptor \
+  --domain=pamaptor.com \
+  --region=asia-southeast2
 ```
 
 ---
 
-## Save Money During Development
-
-Stop Cloud SQL when not in use to avoid the $7/month charge:
+## Phase 9 — Verify
 
 ```bash
-# Stop (pause billing)
-gcloud sql instances patch pamaptor-db --activation-policy=NEVER
+# Check service status
+gcloud run services describe pamaptor --region=asia-southeast2
 
-# Start again
-gcloud sql instances patch pamaptor-db --activation-policy=ALWAYS
+# Live logs
+gcloud run services logs tail pamaptor --region=asia-southeast2
+
+# Test HTTPS direct
+curl -I https://pamaptor-xxxxxxxxxx-et.a.run.app
+
+# Test via Cloudflare domain
+curl -I https://pamaptor.com
 ```
 
 ---
 
-## Estimated Costs (< 200 users)
+## Cost Estimate (Monthly)
 
-| Service | Spec | Est. Cost/month |
-|---------|------|----------------|
-| Cloud Run | min 0, max 3, 512Mi | ~$0–5 |
-| Cloud SQL | db-f1-micro, always-on | ~$7 |
-| Cloud Storage | ~5GB media | ~$0.20 |
-| Gmail SMTP | Free (500/day) | $0 |
-| **Subtotal (no custom domain)** | | **~$8–12** |
-| Custom domain (optional) | .com registration | ~$1/month |
-| Zoho Mail (optional) | Free (5 users, 50/day) | $0 |
-| **Total with custom domain** | | **~$9–13** |
+| Service | Details | Cost |
+|---|---|---|
+| Cloud Run | First 2M requests free | ~$0–5 |
+| Cloud SQL (db-f1-micro) | Always on | ~$10 |
+| GCS Storage | First 5 GB free | ~$0–1 |
+| Artifact Registry | First 0.5 GB free | ~$0 |
+| Cloudflare CDN | Free plan | **$0** |
+| **Total** | | **~$10–16/month** |
+
+> 💡 **Save cost during development:** Stop Cloud SQL when not using it:
+> `gcloud sql instances patch pamaptor-db --activation-policy=NEVER`
+> Re-enable: `gcloud sql instances patch pamaptor-db --activation-policy=ALWAYS`
 
 ---
 
-## Quick Reference — All Commands in Order
+## Useful Commands
 
 ```bash
-export PROJECT_ID="your-gcp-project-id"
+# Tail live logs
+gcloud run services logs tail pamaptor --region=asia-southeast2
 
-# 1. APIs
-gcloud services enable sqladmin.googleapis.com run.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com
+# Update a secret value
+echo -n "new-value" | gcloud secrets versions add SECRET_NAME --data-file=-
 
-# 2. Database
-gcloud sql instances create pamaptor-db --database-version=POSTGRES_15 --tier=db-f1-micro --region=asia-southeast2 --storage-size=10GB --storage-auto-increase
-gcloud sql databases create pamaptor --instance=pamaptor-db
-gcloud sql users create pamaptor_user --instance=pamaptor-db --password=CHANGE_THIS_PASSWORD
+# Connect to Cloud SQL locally (debugging)
+gcloud sql connect pamaptor-db --user=pamaptor_user --database=pamaptor
 
-# 3. Storage
-gsutil mb -p $PROJECT_ID -c STANDARD -l ASIA-SOUTHEAST2 gs://pamaptor-media
-gsutil uniformbucketlevelaccess set on gs://pamaptor-media
-gsutil iam ch allUsers:objectViewer gs://pamaptor-media
+# Scale to zero (save cost)
+gcloud run services update pamaptor --min-instances=0 --region=asia-southeast2
 
-# 4. Service account
-gcloud iam service-accounts create pamaptor-app --display-name="Pamaptor App"
-gcloud projects add-iam-policy-binding $PROJECT_ID --member="serviceAccount:pamaptor-app@${PROJECT_ID}.iam.gserviceaccount.com" --role="roles/cloudsql.client"
-gsutil iam ch serviceAccount:pamaptor-app@${PROJECT_ID}.iam.gserviceaccount.com:roles/storage.objectAdmin gs://pamaptor-media
-
-# 5. Artifact registry + image
-gcloud artifacts repositories create pamaptor --repository-format=docker --location=asia-southeast2
-gcloud builds submit --tag asia-southeast2-docker.pkg.dev/${PROJECT_ID}/pamaptor/app:latest
-
-# 6. Migrate + Seed
-gcloud run jobs execute pamaptor-migrate --region asia-southeast2 --wait
-gcloud run jobs execute pamaptor-seed --region asia-southeast2 --wait
-
-# 7. Deploy
-gcloud run deploy pamaptor --image asia-southeast2-docker.pkg.dev/${PROJECT_ID}/pamaptor/app:latest --region asia-southeast2 --allow-unauthenticated ...
+# Roll back to a previous revision
+gcloud run services update-traffic pamaptor \
+  --to-revisions=PREVIOUS_REVISION=100 \
+  --region=asia-southeast2
 ```
