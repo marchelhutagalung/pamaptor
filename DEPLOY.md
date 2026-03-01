@@ -211,6 +211,9 @@ echo -n "YOUR_HOSTINGER_EMAIL_PASSWORD"        | gcloud secrets create SMTP_PASS
 echo -n "Pamaptor <noreply@pamaptor.com>"      | gcloud secrets create SMTP_FROM --data-file=- --replication-policy=automatic
 
 echo -n "YOUR_ADMIN_REGISTER_SECRET"           | gcloud secrets create ADMIN_REGISTER_SECRET --data-file=- --replication-policy=automatic
+
+# CDN URL — after you deploy the Cloudflare Worker in Phase 8 CDN section
+echo -n "https://cdn.pamaptor.com"             | gcloud secrets create CDN_URL --data-file=- --replication-policy=automatic
 ```
 
 ---
@@ -303,7 +306,8 @@ jobs:
               SMTP_USER=SMTP_USER:latest,\
               SMTP_PASS=SMTP_PASS:latest,\
               SMTP_FROM=SMTP_FROM:latest,\
-              ADMIN_REGISTER_SECRET=ADMIN_REGISTER_SECRET:latest" \
+              ADMIN_REGISTER_SECRET=ADMIN_REGISTER_SECRET:latest,\
+              CDN_URL=CDN_URL:latest" \
             --allow-unauthenticated \
             --min-instances=0 \
             --max-instances=10 \
@@ -378,18 +382,54 @@ In Cloudflare Dashboard:
 **SSL/TLS:**
 - Mode → **Full (strict)**
 
-**Caching → Cache Rules → Create rule #1** (static assets):
+**Caching → Cache Rules → Create rule #1** (Next.js static assets):
 - Expression: `http.request.uri.path contains "/_next/static/"`
-- Cache setting: Cache Everything / Edge TTL: 1 month
+- Cache setting: Cache Everything / Edge TTL: **1 month**
 
-**Caching → Cache Rules → Create rule #2** (GCS media):
-- Expression: `http.request.full_uri contains "storage.googleapis.com/pamaptor-media"`
-- Cache setting: Cache Everything / Edge TTL: 1 week
+**Caching → Cache Rules → Create rule #2** (Next.js optimized images):
+- Expression: `http.request.uri.path contains "/_next/image"`
+- Cache setting: Cache Everything / Edge TTL: **1 month**
 
 **Speed → Optimization:**
 - Enable Auto Minify: JS ✅ CSS ✅ HTML ✅
 
-### 8.6 Map custom domain to Cloud Run
+### 8.6 Deploy Cloudflare Worker for cdn.pamaptor.com (GCS CDN)
+
+This makes all uploaded images (post photos, selfies) served from Cloudflare's edge
+instead of hitting GCS origin — reducing GCS egress costs and improving load speed.
+
+1. Go to Cloudflare Dashboard → **Workers & Pages** → **Create Worker**
+2. Click **Edit code** → paste the contents of `cloudflare-worker/index.js`
+3. Click **Deploy**
+
+4. Add the environment variable in the Worker settings:
+   - **Workers & Pages → your-worker → Settings → Variables**
+   - Variable name: `GCS_BUCKET` / Value: `pamaptor-media`
+
+5. Add a Custom Domain:
+   - **Workers & Pages → your-worker → Settings → Domains & Routes → Add Custom Domain**
+   - Enter: `cdn.pamaptor.com`
+   - Cloudflare automatically adds the DNS record and provisions SSL
+
+6. Add `CDN_URL` secret to Secret Manager (if not done in Phase 5):
+   ```bash
+   echo -n "https://cdn.pamaptor.com" | gcloud secrets create CDN_URL --data-file=- --replication-policy=automatic
+   ```
+
+7. Redeploy Cloud Run to pick up the new secret:
+   ```bash
+   gcloud run services update pamaptor \
+     --update-secrets="CDN_URL=CDN_URL:latest" \
+     --region=asia-southeast2
+   ```
+
+> ℹ️ **How the CDN works after this:**
+> - New uploads → `gcs.ts` returns `https://cdn.pamaptor.com/posts/xxx.jpg`
+> - Browser/next/image requests `cdn.pamaptor.com/posts/xxx.jpg`
+> - Cloudflare Worker fetches from GCS once, caches at edge for 1 year
+> - All subsequent requests are served from Cloudflare — GCS is never hit again
+
+### 8.7 Map custom domain to Cloud Run
 
 ```bash
 gcloud run domain-mappings create \

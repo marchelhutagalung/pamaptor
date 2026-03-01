@@ -6,7 +6,7 @@ const cspDirectives = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://storage.googleapis.com https://*.tile.openstreetmap.org",
+  "img-src 'self' data: blob: https://storage.googleapis.com https://cdn.pamaptor.com https://*.tile.openstreetmap.org",
   "font-src 'self'",
   "connect-src 'self' https://nominatim.openstreetmap.org https://*.tile.openstreetmap.org",
   "media-src 'self' blob:",
@@ -37,11 +37,17 @@ const securityHeaders = [
 const nextConfig = {
   output: "standalone",
   images: {
+    minimumCacheTTL: 60 * 60 * 24 * 30, // 30 days — Cloud Run won't re-optimize the same image
     remotePatterns: [
       {
         protocol: "https",
         hostname: "storage.googleapis.com",
         pathname: "/pamaptor-media/**",
+      },
+      {
+        protocol: "https",
+        hostname: "cdn.pamaptor.com", // CDN subdomain proxying GCS (Cloudflare Worker)
+        pathname: "/**",
       },
       {
         protocol: "https",

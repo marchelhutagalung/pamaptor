@@ -49,9 +49,14 @@ export async function uploadToGCS(
   const blob = bucket.file(destination);
   await blob.save(file, {
     contentType,
-    metadata: { cacheControl: "public, max-age=31536000" },
+    metadata: { cacheControl: "public, max-age=31536000, immutable" },
   });
-  return `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/${destination}`;
+
+  // Use CDN URL when configured (cdn.pamaptor.com), otherwise fall back to GCS direct URL
+  const base = process.env.CDN_URL
+    ? process.env.CDN_URL.replace(/\/$/, "")
+    : `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}`;
+  return `${base}/${destination}`;
 }
 
 export async function deleteFromGCS(destination: string): Promise<void> {

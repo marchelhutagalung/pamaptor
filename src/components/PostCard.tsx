@@ -1,4 +1,5 @@
 import AppImage from "@/components/AppImage";
+import ExpandableText from "@/components/ExpandableText";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Pin, CircleDot } from "lucide-react";
@@ -114,9 +115,7 @@ export default function PostCard({ post }: PostCardProps) {
         </div>
 
         {post.description && (
-          <p className="text-gray-200 text-sm leading-relaxed line-clamp-3">
-            {post.description}
-          </p>
+          <ExpandableText text={post.description} />
         )}
 
         <div className="flex items-start gap-1.5 text-gray-500">

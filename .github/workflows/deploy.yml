@@ -56,7 +56,8 @@ jobs:
               SMTP_USER=SMTP_USER:latest,\
               SMTP_PASS=SMTP_PASS:latest,\
               SMTP_FROM=SMTP_FROM:latest,\
-              ADMIN_REGISTER_SECRET=ADMIN_REGISTER_SECRET:latest" \
+              ADMIN_REGISTER_SECRET=ADMIN_REGISTER_SECRET:latest,\
+              CDN_URL=CDN_URL:latest" \
             --allow-unauthenticated \
             --min-instances=0 \
             --max-instances=10 \
