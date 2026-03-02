@@ -118,16 +118,39 @@ export default function UploadPage() {
   const startCamera = async () => {
     setCameraError("");
     setVideoReady(false);
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCameraError("Browser tidak mendukung akses kamera. Pastikan Anda menggunakan HTTPS.");
+      return;
+    }
+
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 960 } },
       });
       setStream(mediaStream);
       setMode("camera");
-    } catch {
-      setCameraError(
-        "Tidak dapat mengakses kamera. Pastikan izin kamera diberikan, atau gunakan galeri."
-      );
+    } catch (err) {
+      const name = err instanceof Error ? err.name : "";
+      if (name === "NotAllowedError") {
+        setCameraError("Akses kamera ditolak. Buka Pengaturan Safari > Websites > Camera dan izinkan situs ini.");
+      } else if (name === "NotFoundError") {
+        setCameraError("Kamera tidak ditemukan di perangkat ini.");
+      } else if (name === "NotReadableError") {
+        setCameraError("Kamera sedang digunakan oleh aplikasi lain. Tutup aplikasi lain dan coba lagi.");
+      } else if (name === "OverconstrainedError") {
+        // Fallback: try with simpler constraints
+        try {
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          setStream(fallbackStream);
+          setMode("camera");
+          return;
+        } catch {
+          setCameraError("Kamera tidak mendukung konfigurasi yang diminta.");
+        }
+      } else {
+        setCameraError(`Tidak dapat mengakses kamera: ${err instanceof Error ? err.message : "Unknown error"}`);
+      }
     }
   };
 

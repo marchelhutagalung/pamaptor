@@ -46,6 +46,12 @@ export default function SelfiePage() {
   const startCamera = async () => {
     setError("");
     setVideoReady(false);
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError("Browser tidak mendukung akses kamera. Pastikan Anda menggunakan HTTPS.");
+      return;
+    }
+
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 720 } },
@@ -53,8 +59,27 @@ export default function SelfiePage() {
       // Set state — the useEffect above will attach stream to video once it mounts
       setStream(mediaStream);
       setCameraActive(true);
-    } catch {
-      setError("Tidak dapat mengakses kamera. Gunakan upload foto sebagai gantinya.");
+    } catch (err) {
+      const name = err instanceof Error ? err.name : "";
+      if (name === "NotAllowedError") {
+        setError("Akses kamera ditolak. Buka Pengaturan Safari > Websites > Camera dan izinkan situs ini.");
+      } else if (name === "NotFoundError") {
+        setError("Kamera tidak ditemukan di perangkat ini.");
+      } else if (name === "NotReadableError") {
+        setError("Kamera sedang digunakan oleh aplikasi lain. Tutup aplikasi lain dan coba lagi.");
+      } else if (name === "OverconstrainedError") {
+        // Fallback: try with simpler constraints
+        try {
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          setStream(fallbackStream);
+          setCameraActive(true);
+          return;
+        } catch {
+          setError("Kamera tidak mendukung konfigurasi yang diminta.");
+        }
+      } else {
+        setError(`Tidak dapat mengakses kamera: ${err instanceof Error ? err.message : "Unknown error"}`);
+      }
     }
   };
 

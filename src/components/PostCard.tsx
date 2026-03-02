@@ -1,5 +1,6 @@
 import AppImage from "@/components/AppImage";
 import ExpandableText from "@/components/ExpandableText";
+import ShareButton from "@/components/ShareButton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Pin, CircleDot } from "lucide-react";
@@ -121,6 +122,10 @@ export default function PostCard({ post }: PostCardProps) {
         <div className="flex items-start gap-1.5 text-gray-500">
           <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" />
           <p className="text-xs line-clamp-2">{post.locationText}</p>
+        </div>
+
+        <div className="flex justify-end pt-2 border-t border-white/5">
+          <ShareButton imageUrl={post.imageUrl} description={post.description} />
         </div>
       </div>
     </article>

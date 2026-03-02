@@ -8,7 +8,7 @@ const cspDirectives = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://storage.googleapis.com https://cdn.pamaptor.com https://*.tile.openstreetmap.org",
   "font-src 'self'",
-  "connect-src 'self' https://nominatim.openstreetmap.org https://*.tile.openstreetmap.org",
+  "connect-src 'self' https://nominatim.openstreetmap.org https://*.tile.openstreetmap.org https://storage.googleapis.com https://cdn.pamaptor.com",
   "media-src 'self' blob:",
   "worker-src 'self' blob:",
   "frame-ancestors 'none'",
