@@ -7,7 +7,9 @@ const patchSchema = z.object({
   markAllRead: z.boolean(),
 });
 
-export async function GET(_request: NextRequest) {
+export async function GET(
+  _request: NextRequest, // eslint-disable-line @typescript-eslint/no-unused-vars
+) {
   const { error, session } = await requireSession();
   if (error) return error;
 

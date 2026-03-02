@@ -16,6 +16,7 @@ interface ShareButtonProps {
   description: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function ShareButton({ imageUrl, description }: ShareButtonProps) {
   const { toast } = useToast();
   const [sheetOpen, setSheetOpen] = useState(false);
