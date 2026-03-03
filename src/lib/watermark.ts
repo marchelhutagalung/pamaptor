@@ -56,20 +56,20 @@ export async function addWatermark(imageBlob: Blob): Promise<Blob> {
 
   // 3. Bottom text — "Pamaptor." BeReal-style centered
   const text = "Pamaptor.";
-  const fontSize = Math.max(Math.round(h * 0.03), 16); // 3% of height, min 16px
-  ctx.font = `500 ${fontSize}px sans-serif`;
+  const fontSize = Math.max(Math.round(h * 0.035), 20); // 3.5% of height, min 20px
+  ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "bottom";
 
   const textX = w / 2;
-  const textY = h - Math.round(h * 0.02); // ~2% from bottom edge
+  const textY = h - Math.round(h * 0.025); // ~2.5% from bottom edge
 
-  // Subtle shadow for readability on any background
-  ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
-  ctx.fillText(text, textX + 1, textY + 1);
+  // Shadow for contrast on any background
+  ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+  ctx.fillText(text, textX + 1, textY + 2);
 
-  // Main text — muted white like BeReal style
-  ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+  // Main text — soft white like BeReal
+  ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
   ctx.fillText(text, textX, textY);
 
   // 4. Export as JPEG blob
