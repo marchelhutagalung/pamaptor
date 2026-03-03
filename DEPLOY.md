@@ -46,15 +46,15 @@ docker --version
 # Login to GCP
 gcloud auth login
 
-# Create new project  (replace pamaptor-prod with your preferred project ID)
-gcloud projects create pamaptor-prod --name="Pamaptor"
+# Create new project  (replace project-eca091cb-172a-4d4f-b1e with your preferred project ID)
+gcloud projects create project-eca091cb-172a-4d4f-b1e --name="Pamaptor"
 
 # Set as default project
-gcloud config set project pamaptor-prod
+gcloud config set project project-eca091cb-172a-4d4f-b1e
 
 # Link billing account (required for Cloud Run + Cloud SQL)
 # Go to: https://console.cloud.google.com/billing
-# Link the billing account to pamaptor-prod
+# Link the billing account to project-eca091cb-172a-4d4f-b1e
 ```
 
 ### 1.2 Enable required APIs
@@ -80,13 +80,13 @@ gcloud services enable \
 gcloud sql instances create pamaptor-db \
   --database-version=POSTGRES_15 \
   --tier=db-f1-micro \
-  --region=asia-southeast2 \
+  --region=asia-southeast1 \
   --storage-auto-increase \
   --storage-size=10GB
 
 # Note down the connection name — you will need it in Phase 5
 gcloud sql instances describe pamaptor-db --format="value(connectionName)"
-# Example output: pamaptor-prod:asia-southeast2:pamaptor-db
+# Example output: project-eca091cb-172a-4d4f-b1e:asia-southeast1:pamaptor-db
 ```
 
 ### 2.2 Create database and user
@@ -106,7 +106,7 @@ gcloud sql users create pamaptor_user \
 Cloud Run connects to PostgreSQL via Unix socket (not TCP). Use this format:
 
 ```
-postgresql://pamaptor_user:YOUR_DB_PASSWORD@localhost/pamaptor?host=/cloudsql/pamaptor-prod:asia-southeast2:pamaptor-db
+postgresql://pamaptor_user:YOUR_DB_PASSWORD@localhost/pamaptor?host=/cloudsql/project-eca091cb-172a-4d4f-b1e:asia-southeast1:pamaptor-db
 ```
 
 ---
@@ -116,7 +116,7 @@ postgresql://pamaptor_user:YOUR_DB_PASSWORD@localhost/pamaptor?host=/cloudsql/pa
 ```bash
 # Create bucket in the same region
 gcloud storage buckets create gs://pamaptor-media \
-  --location=asia-southeast2 \
+  --location=asia-southeast1 \
   --uniform-bucket-level-access
 
 # Allow public read for post images and selfies
@@ -136,18 +136,18 @@ gcloud iam service-accounts create pamaptor-cloudrun \
   --display-name="Pamaptor Cloud Run SA"
 
 # Cloud SQL
-gcloud projects add-iam-policy-binding pamaptor-prod \
-  --member="serviceAccount:pamaptor-cloudrun@pamaptor-prod.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding project-eca091cb-172a-4d4f-b1e \
+  --member="serviceAccount:pamaptor-cloudrun@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com" \
   --role="roles/cloudsql.client"
 
 # GCS
-gcloud projects add-iam-policy-binding pamaptor-prod \
-  --member="serviceAccount:pamaptor-cloudrun@pamaptor-prod.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding project-eca091cb-172a-4d4f-b1e \
+  --member="serviceAccount:pamaptor-cloudrun@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com" \
   --role="roles/storage.objectAdmin"
 
 # Secret Manager
-gcloud projects add-iam-policy-binding pamaptor-prod \
-  --member="serviceAccount:pamaptor-cloudrun@pamaptor-prod.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding project-eca091cb-172a-4d4f-b1e \
+  --member="serviceAccount:pamaptor-cloudrun@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com" \
   --role="roles/secretmanager.secretAccessor"
 ```
 
@@ -158,27 +158,58 @@ gcloud iam service-accounts create pamaptor-github-actions \
   --display-name="Pamaptor GitHub Actions SA"
 
 # Push Docker images
-gcloud projects add-iam-policy-binding pamaptor-prod \
-  --member="serviceAccount:pamaptor-github-actions@pamaptor-prod.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding project-eca091cb-172a-4d4f-b1e \
+  --member="serviceAccount:pamaptor-github-actions@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com" \
   --role="roles/artifactregistry.writer"
 
 # Deploy Cloud Run
-gcloud projects add-iam-policy-binding pamaptor-prod \
-  --member="serviceAccount:pamaptor-github-actions@pamaptor-prod.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding project-eca091cb-172a-4d4f-b1e \
+  --member="serviceAccount:pamaptor-github-actions@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com" \
   --role="roles/run.admin"
 
 # Allow deploying as the Cloud Run SA
 gcloud iam service-accounts add-iam-policy-binding \
-  pamaptor-cloudrun@pamaptor-prod.iam.gserviceaccount.com \
-  --member="serviceAccount:pamaptor-github-actions@pamaptor-prod.iam.gserviceaccount.com" \
+  pamaptor-cloudrun@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com \
+  --member="serviceAccount:pamaptor-github-actions@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com" \
   --role="roles/iam.serviceAccountUser"
+```
 
-# Download JSON key — copy the output into GitHub Secrets (next phase)
-gcloud iam service-accounts keys create gha-key.json \
-  --iam-account=pamaptor-github-actions@pamaptor-prod.iam.gserviceaccount.com
+### 4.3 Workload Identity Federation (keyless auth for GitHub Actions)
 
-cat gha-key.json
-# ⚠️ Delete the file after copying: rm gha-key.json
+> JSON key creation is blocked by org policy. Use Workload Identity Federation instead — no long-lived credentials needed.
+
+```bash
+# Create the Workload Identity Pool
+gcloud iam workload-identity-pools create "github-pool" \
+  --project="project-eca091cb-172a-4d4f-b1e" \
+  --location="global" \
+  --display-name="GitHub Actions Pool"
+
+# Create the OIDC Provider  (replace YOUR_GITHUB_USERNAME/pamaptor with your actual repo)
+gcloud iam workload-identity-pools providers create-oidc "github-provider" \
+  --project="project-eca091cb-172a-4d4f-b1e" \
+  --location="global" \
+  --workload-identity-pool="github-pool" \
+  --display-name="GitHub Provider" \
+  --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository" \
+  --attribute-condition="assertion.repository=='YOUR_GITHUB_USERNAME/pamaptor'" \
+  --issuer-uri="https://token.actions.githubusercontent.com"
+
+# Bind the SA to your GitHub repo  (replace YOUR_GITHUB_USERNAME/pamaptor)
+gcloud iam service-accounts add-iam-policy-binding \
+  pamaptor-github-actions@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com \
+  --project="project-eca091cb-172a-4d4f-b1e" \
+  --role="roles/iam.workloadIdentityUser" \
+  --member="principalSet://iam.googleapis.com/projects/556319918654/locations/global/workloadIdentityPools/github-pool/attribute.repository/YOUR_GITHUB_USERNAME/pamaptor"
+
+# Get the provider resource name — copy this into GitHub Secrets
+gcloud iam workload-identity-pools providers describe github-provider \
+  --project="project-eca091cb-172a-4d4f-b1e" \
+  --location="global" \
+  --workload-identity-pool="github-pool" \
+  --format="value(name)"
+# Output looks like:
+# projects/556319918654/locations/global/workloadIdentityPools/github-pool/providers/github-provider
 ```
 
 ---
@@ -196,10 +227,10 @@ echo -n "https://pamaptor.com"     | gcloud secrets create NEXTAUTH_URL --data-f
 echo -n "https://pamaptor.com"     | gcloud secrets create NEXT_PUBLIC_APP_URL --data-file=- --replication-policy=automatic
 
 # Use the DATABASE_URL from Phase 2.3
-echo -n "postgresql://pamaptor_user:YOUR_DB_PASSWORD@localhost/pamaptor?host=/cloudsql/pamaptor-prod:asia-southeast2:pamaptor-db" \
+echo -n "postgresql://pamaptor_user:YOUR_DB_PASSWORD@localhost/pamaptor?host=/cloudsql/project-eca091cb-172a-4d4f-b1e:asia-southeast1:pamaptor-db" \
   | gcloud secrets create DATABASE_URL --data-file=- --replication-policy=automatic
 
-echo -n "pamaptor-prod"            | gcloud secrets create GCP_PROJECT_ID --data-file=- --replication-policy=automatic
+echo -n "project-eca091cb-172a-4d4f-b1e"            | gcloud secrets create GCP_PROJECT_ID --data-file=- --replication-policy=automatic
 echo -n "pamaptor-media"           | gcloud secrets create GCS_BUCKET_NAME --data-file=- --replication-policy=automatic
 
 # Hostinger SMTP — get credentials from:
@@ -223,11 +254,11 @@ echo -n "https://cdn.pamaptor.com"             | gcloud secrets create CDN_URL -
 ```bash
 gcloud artifacts repositories create pamaptor \
   --repository-format=docker \
-  --location=asia-southeast2 \
+  --location=asia-southeast1 \
   --description="Pamaptor Docker images"
 
 # Authorize local Docker to push
-gcloud auth configure-docker asia-southeast2-docker.pkg.dev
+gcloud auth configure-docker asia-southeast1-docker.pkg.dev
 ```
 
 ---
@@ -240,8 +271,9 @@ Go to: **GitHub repo → Settings → Secrets and variables → Actions → New 
 
 | Secret Name | Value |
 |---|---|
-| `GCP_SA_KEY` | Full JSON content of `gha-key.json` from Phase 4.2 |
-| `GCP_PROJECT_ID` | `pamaptor-prod` |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | Provider resource name from Phase 4.3 (e.g. `projects/556319918654/locations/global/...`) |
+| `GCP_SERVICE_ACCOUNT` | `pamaptor-github-actions@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com` |
+| `GCP_PROJECT_ID` | `project-eca091cb-172a-4d4f-b1e` |
 
 ### 7.2 Create the workflow file
 
@@ -255,12 +287,15 @@ on:
     branches: [main]
 
 env:
-  REGION: asia-southeast2
-  IMAGE: asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/pamaptor/pamaptor
+  REGION: asia-southeast1
+  IMAGE: asia-southeast1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/pamaptor/pamaptor
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # required for Workload Identity Federation
 
     steps:
       - name: Checkout
@@ -269,7 +304,8 @@ jobs:
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -322,16 +358,17 @@ jobs:
 ```bash
 # Create a one-off Cloud Run Job for the migration
 gcloud run jobs create pamaptor-migrate \
-  --image=asia-southeast2-docker.pkg.dev/pamaptor-prod/pamaptor/pamaptor:latest \
-  --region=asia-southeast2 \
-  --service-account=pamaptor-cloudrun@pamaptor-prod.iam.gserviceaccount.com \
-  --add-cloudsql-instances=pamaptor-prod:asia-southeast2:pamaptor-db \
+  --image=asia-southeast1-docker.pkg.dev/project-eca091cb-172a-4d4f-b1e/pamaptor/pamaptor:latest \
+  --region=asia-southeast1 \
+  --service-account=pamaptor-cloudrun@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com \
+  --set-cloudsql-instances=project-eca091cb-172a-4d4f-b1e:asia-southeast1:pamaptor-db \
   --set-secrets="DATABASE_URL=DATABASE_URL:latest" \
-  --command="npx" \
-  --args="prisma,migrate,deploy"
+  --command="prisma" \
+  --args="migrate,deploy" \
+  --memory=1Gi
 
 # Run it
-gcloud run jobs execute pamaptor-migrate --region=asia-southeast2 --wait
+gcloud run jobs execute pamaptor-migrate --region=asia-southeast1 --wait
 ```
 
 ---
@@ -356,7 +393,7 @@ gcloud run jobs execute pamaptor-migrate --region=asia-southeast2 --wait
 
 ```bash
 gcloud run services describe pamaptor \
-  --region=asia-southeast2 \
+  --region=asia-southeast1 \
   --format="value(status.url)"
 # Output: https://pamaptor-xxxxxxxxxx-et.a.run.app
 ```
@@ -390,23 +427,23 @@ In Cloudflare Dashboard:
 - Expression: `http.request.uri.path contains "/_next/image"`
 - Cache setting: Cache Everything / Edge TTL: **1 month**
 
-**Speed → Optimization:**
-- Enable Auto Minify: JS ✅ CSS ✅ HTML ✅
-
 ### 8.6 Deploy Cloudflare Worker for cdn.pamaptor.com (GCS CDN)
 
 This makes all uploaded images (post photos, selfies) served from Cloudflare's edge
 instead of hitting GCS origin — reducing GCS egress costs and improving load speed.
 
-1. Go to Cloudflare Dashboard → **Workers & Pages** → **Create Worker**
-2. Click **Edit code** → paste the contents of `cloudflare-worker/index.js`
-3. Click **Deploy**
+```bash
+# Install wrangler CLI
+npm install -g wrangler
 
-4. Add the environment variable in the Worker settings:
-   - **Workers & Pages → your-worker → Settings → Variables**
-   - Variable name: `GCS_BUCKET` / Value: `pamaptor-media`
+# Login to Cloudflare
+wrangler login
 
-5. Add a Custom Domain:
+# Deploy the worker (from project root)
+cd cloudflare-worker && wrangler deploy
+```
+
+5. Add a Custom Domain (in Cloudflare Dashboard):
    - **Workers & Pages → your-worker → Settings → Domains & Routes → Add Custom Domain**
    - Enter: `cdn.pamaptor.com`
    - Cloudflare automatically adds the DNS record and provisions SSL
@@ -420,7 +457,7 @@ instead of hitting GCS origin — reducing GCS egress costs and improving load s
    ```bash
    gcloud run services update pamaptor \
      --update-secrets="CDN_URL=CDN_URL:latest" \
-     --region=asia-southeast2
+     --region=asia-southeast1
    ```
 
 > ℹ️ **How the CDN works after this:**
@@ -431,11 +468,30 @@ instead of hitting GCS origin — reducing GCS egress costs and improving load s
 
 ### 8.7 Map custom domain to Cloud Run
 
+For `asia-southeast1`, use Cloud Run domain mappings so requests for
+`pamaptor.com` and `www.pamaptor.com` are accepted directly by Cloud Run.
+
 ```bash
-gcloud run domain-mappings create \
+gcloud beta run domain-mappings create \
   --service=pamaptor \
   --domain=pamaptor.com \
-  --region=asia-southeast2
+  --region=asia-southeast1
+
+gcloud beta run domain-mappings create \
+  --service=pamaptor \
+  --domain=www.pamaptor.com \
+  --region=asia-southeast1
+```
+
+Then verify DNS targets:
+```bash
+gcloud beta run domain-mappings describe \
+  --domain=pamaptor.com \
+  --region=asia-southeast1
+
+gcloud beta run domain-mappings describe \
+  --domain=www.pamaptor.com \
+  --region=asia-southeast1
 ```
 
 ---
@@ -444,10 +500,10 @@ gcloud run domain-mappings create \
 
 ```bash
 # Check service status
-gcloud run services describe pamaptor --region=asia-southeast2
+gcloud run services describe pamaptor --region=asia-southeast1
 
 # Live logs
-gcloud run services logs tail pamaptor --region=asia-southeast2
+gcloud run services logs tail pamaptor --region=asia-southeast1
 
 # Test HTTPS direct
 curl -I https://pamaptor-xxxxxxxxxx-et.a.run.app
@@ -479,7 +535,7 @@ curl -I https://pamaptor.com
 
 ```bash
 # Tail live logs
-gcloud run services logs tail pamaptor --region=asia-southeast2
+gcloud run services logs tail pamaptor --region=asia-southeast1
 
 # Update a secret value
 echo -n "new-value" | gcloud secrets versions add SECRET_NAME --data-file=-
@@ -488,10 +544,10 @@ echo -n "new-value" | gcloud secrets versions add SECRET_NAME --data-file=-
 gcloud sql connect pamaptor-db --user=pamaptor_user --database=pamaptor
 
 # Scale to zero (save cost)
-gcloud run services update pamaptor --min-instances=0 --region=asia-southeast2
+gcloud run services update pamaptor --min-instances=0 --region=asia-southeast1
 
 # Roll back to a previous revision
 gcloud run services update-traffic pamaptor \
   --to-revisions=PREVIOUS_REVISION=100 \
-  --region=asia-southeast2
+  --region=asia-southeast1
 ```

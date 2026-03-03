@@ -75,12 +75,25 @@ export default function LocationPicker({ onSelect, value }: LocationPickerProps)
     return () => controller.abort();
   }, [debouncedQuery]);
 
-  const detectLocation = () => {
+  const detectLocation = async () => {
     setLocationError("");
 
     if (!navigator.geolocation) {
       setLocationError("Browser Anda tidak mendukung geolokasi. Cari lokasi secara manual.");
       return;
+    }
+
+    // Check permission state first so we can show a useful message if already denied
+    if (navigator.permissions) {
+      try {
+        const status = await navigator.permissions.query({ name: "geolocation" });
+        if (status.state === "denied") {
+          setLocationError("Izin lokasi ditolak. Buka pengaturan browser Anda dan izinkan akses lokasi untuk situs ini.");
+          return;
+        }
+      } catch {
+        // Permissions API not supported on this browser — continue anyway
+      }
     }
 
     setIsDetecting(true);
@@ -106,10 +119,17 @@ export default function LocationPicker({ onSelect, value }: LocationPickerProps)
           setIsDetecting(false);
         }
       },
-      () => {
+      (err) => {
         setIsDetecting(false);
-        setLocationError("Tidak dapat mendapatkan lokasi. Cari lokasi secara manual.");
-      }
+        if (err.code === 1) {
+          setLocationError("Izin lokasi ditolak. Buka pengaturan browser Anda dan izinkan akses lokasi untuk situs ini.");
+        } else if (err.code === 2) {
+          setLocationError("Lokasi tidak tersedia. Pastikan GPS aktif dan coba lagi.");
+        } else {
+          setLocationError("Tidak dapat mendapatkan lokasi. Cari lokasi secara manual.");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 

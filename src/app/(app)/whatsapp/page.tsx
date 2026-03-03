@@ -2,17 +2,11 @@ import Link from "next/link";
 import { ArrowLeft, MessageCircle, Phone } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-// Daftar kontak PAMAPTA — tambah/kurangi sesuai kebutuhan (max 4)
 const CONTACTS = [
   {
-    name: "PAMAPTA 1",
-    phone: "081234567890",
-    avatar: "/images/pamapta-1.jpg", // ganti dengan foto asli
-  },
-  {
-    name: "PAMAPTA 2",
-    phone: "081234567891",
-    avatar: "/images/pamapta-2.jpg",
+    name: "DEVAN EFRAIM HUTABARAT",
+    phone: "6282163292094",
+    avatar: "",
   },
 ];
 

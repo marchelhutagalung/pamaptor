@@ -1,0 +1,12 @@
+name = "pamaptor-proxy"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+# Route all pamaptor.com traffic through this worker
+routes = [
+  { pattern = "pamaptor.com/*", zone_name = "pamaptor.com" },
+  { pattern = "www.pamaptor.com/*", zone_name = "pamaptor.com" }
+]
+
+[vars]
+CLOUD_RUN_ORIGIN = "https://pamaptor-556319918654.asia-southeast1.run.app"

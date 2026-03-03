@@ -351,7 +351,7 @@ export default function UploadPage() {
       {/* ── STEP 2: Camera live view ── */}
       {mode === "camera" && (
         <div className="flex flex-col">
-          <div className="relative w-full bg-black overflow-hidden" style={{ height: "calc(100vh - 180px)" }}>
+          <div className="relative w-full bg-black overflow-hidden" style={{ height: "calc(100dvh - 160px)" }}>
             <video
               ref={videoRef}
               autoPlay
