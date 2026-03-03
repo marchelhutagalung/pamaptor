@@ -5,8 +5,8 @@ on:
     branches: [main]
 
 env:
-  REGION: asia-southeast2
-  IMAGE: asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/pamaptor/pamaptor
+  REGION: asia-southeast1
+  IMAGE: asia-southeast1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/pamaptor/pamaptor
 
 jobs:
   deploy:
