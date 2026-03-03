@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendVerificationEmail } from "@/lib/email";
 import { rateLimit, getIP } from "@/lib/rate-limit";
+import { verifyRecaptcha } from "@/lib/recaptcha";
 
 const registerAdminSchema = z.object({
   name: z.string().min(2, "Nama minimal 2 karakter"),
@@ -25,6 +26,16 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
+
+    // Verify reCAPTCHA token
+    const isHuman = await verifyRecaptcha(body.recaptchaToken);
+    if (!isHuman) {
+      return NextResponse.json(
+        { error: "Verifikasi reCAPTCHA gagal. Silakan coba lagi." },
+        { status: 400 }
+      );
+    }
+
     const validation = registerAdminSchema.safeParse(body);
 
     if (!validation.success) {

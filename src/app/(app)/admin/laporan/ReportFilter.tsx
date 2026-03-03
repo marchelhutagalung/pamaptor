@@ -97,33 +97,31 @@ export default function ReportFilter() {
         )}
       </div>
 
-      <div className="flex gap-2">
-        <div className="flex-1">
-          <label className="text-xs text-gray-500 mb-1 block">Dari</label>
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => {
-              setFrom(e.target.value);
-              setError("");
-            }}
-            max={to || undefined}
-            className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-white text-sm [color-scheme:dark]"
-          />
-        </div>
-        <div className="flex-1">
-          <label className="text-xs text-gray-500 mb-1 block">Hingga</label>
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => {
-              setTo(e.target.value);
-              setError("");
-            }}
-            min={from || undefined}
-            className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-white text-sm [color-scheme:dark]"
-          />
-        </div>
+      <div>
+        <label className="text-xs text-gray-500 mb-1 block">Dari</label>
+        <input
+          type="date"
+          value={from}
+          onChange={(e) => {
+            setFrom(e.target.value);
+            setError("");
+          }}
+          max={to || undefined}
+          className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-white text-sm [color-scheme:dark]"
+        />
+      </div>
+      <div>
+        <label className="text-xs text-gray-500 mb-1 block">Hingga</label>
+        <input
+          type="date"
+          value={to}
+          onChange={(e) => {
+            setTo(e.target.value);
+            setError("");
+          }}
+          min={from || undefined}
+          className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-white text-sm [color-scheme:dark]"
+        />
       </div>
       <div className="flex gap-2">
         <select

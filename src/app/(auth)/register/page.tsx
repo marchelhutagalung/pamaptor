@@ -67,6 +67,19 @@ export default function RegisterPage() {
     setIsLoading(true);
     setError("");
 
+    // reCAPTCHA v3 — get token (skip if not configured)
+    let recaptchaToken = "";
+    const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+    if (siteKey && typeof window !== "undefined" && window.grecaptcha) {
+      try {
+        recaptchaToken = await window.grecaptcha.execute(siteKey, { action: "register" });
+      } catch {
+        setError("Verifikasi reCAPTCHA gagal. Silakan muat ulang halaman.");
+        setIsLoading(false);
+        return;
+      }
+    }
+
     const isPetugas = data.role === "Petugas";
 
     const endpoint = isPetugas
@@ -74,8 +87,8 @@ export default function RegisterPage() {
       : "/api/auth/register";
 
     const body = isPetugas
-      ? { name: data.name, email: data.email, phone: data.phone, password: data.password, secret: data.secret }
-      : { name: data.name, email: data.email, phone: data.phone, password: data.password };
+      ? { name: data.name, email: data.email, phone: data.phone, password: data.password, secret: data.secret, recaptchaToken }
+      : { name: data.name, email: data.email, phone: data.phone, password: data.password, recaptchaToken };
 
     const res = await fetch(endpoint, {
       method: "POST",
