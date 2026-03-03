@@ -108,7 +108,7 @@ export default function ReportFilter() {
               setError("");
             }}
             max={to || undefined}
-            className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-white text-sm"
+            className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-white text-sm [color-scheme:dark]"
           />
         </div>
         <div className="flex-1">
@@ -121,7 +121,7 @@ export default function ReportFilter() {
               setError("");
             }}
             min={from || undefined}
-            className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-white text-sm"
+            className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-white text-sm [color-scheme:dark]"
           />
         </div>
       </div>
@@ -129,7 +129,7 @@ export default function ReportFilter() {
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          className="flex-1 bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-white text-sm"
+          className="flex-1 bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-white text-sm [color-scheme:dark]"
         >
           {STATUS_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
