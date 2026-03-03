@@ -1,0 +1,16 @@
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "--build-arg"
+      - "NEXT_PUBLIC_RECAPTCHA_SITE_KEY=${_RECAPTCHA_SITE_KEY}"
+      - "-t"
+      - "${_IMAGE}"
+      - "."
+
+images:
+  - "${_IMAGE}"
+
+substitutions:
+  _IMAGE: "asia-southeast1-docker.pkg.dev/project-eca091cb-172a-4d4f-b1e/pamaptor/pamaptor"
+  _RECAPTCHA_SITE_KEY: ""

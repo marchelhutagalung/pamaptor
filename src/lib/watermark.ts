@@ -69,8 +69,8 @@ export async function addWatermark(imageBlob: Blob): Promise<Blob> {
   ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
   ctx.fillText(text, textX + shadowOffset, textY + shadowOffset);
 
-  // Main text — white, 10% opacity (90% transparent)
-  ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+  // Main text — white, 10% opacity (% transparent)
+  ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
   ctx.fillText(text, textX, textY);
 
   // 4. Export as JPEG blob
