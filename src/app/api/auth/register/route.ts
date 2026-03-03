@@ -4,7 +4,6 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { sendVerificationEmail } from "@/lib/email";
 import { rateLimit, getIP } from "@/lib/rate-limit";
-import { verifyRecaptcha } from "@/lib/recaptcha";
 import crypto from "crypto";
 
 const registerSchema = z.object({
@@ -25,16 +24,6 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-
-    // Verify reCAPTCHA token
-    const isHuman = await verifyRecaptcha(body.recaptchaToken);
-    if (!isHuman) {
-      return NextResponse.json(
-        { error: "Verifikasi reCAPTCHA gagal. Silakan coba lagi." },
-        { status: 400 }
-      );
-    }
-
     const validation = registerSchema.safeParse(body);
 
     if (!validation.success) {

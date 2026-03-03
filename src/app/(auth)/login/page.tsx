@@ -54,24 +54,10 @@ function LoginForm() {
     setIsLoading(true);
     setError("");
 
-    // reCAPTCHA v3 — get token (skip if not configured)
-    let recaptchaToken = "";
-    const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
-    if (siteKey && typeof window !== "undefined" && window.grecaptcha) {
-      try {
-        recaptchaToken = await window.grecaptcha.execute(siteKey, { action: "login" });
-      } catch {
-        setError("Verifikasi reCAPTCHA gagal. Silakan muat ulang halaman.");
-        setIsLoading(false);
-        return;
-      }
-    }
-
     const result = await signIn("credentials", {
       email: data.email,
       password: data.password,
       role: role === "Petugas" ? "ADMIN" : "USER",
-      recaptchaToken,
       redirect: false,
     });
 

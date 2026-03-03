@@ -13,9 +13,6 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# reCAPTCHA site key must be available at build time (NEXT_PUBLIC_ vars are inlined)
-ARG NEXT_PUBLIC_RECAPTCHA_SITE_KEY=""
-ENV NEXT_PUBLIC_RECAPTCHA_SITE_KEY=$NEXT_PUBLIC_RECAPTCHA_SITE_KEY
 # Generate Prisma client
 RUN npx prisma generate
 RUN npm run build

@@ -44,7 +44,7 @@ export async function addWatermark(imageBlob: Blob): Promise<Blob> {
   // 2. Top-left logo — 10% of image height, no background (transparent logo)
   try {
     const logo = await loadImage(LOGO_PATH);
-    const logoH = Math.round(h * 0.1);
+    const logoH = Math.round(h * 0.08);
     const logoW = Math.round(logo.naturalWidth * (logoH / logo.naturalHeight));
 
     ctx.globalAlpha = 0.85;
@@ -54,23 +54,22 @@ export async function addWatermark(imageBlob: Blob): Promise<Blob> {
     // Logo failed to load — skip it silently
   }
 
-  // 3. Bottom text — "Pamaptor." small, near bottom edge, 90% transparent
+  // 3. Bottom text — "Pamaptor." BeReal-style centered
   const text = "Pamaptor.";
-  const fontSize = Math.max(Math.round(h * 0.03), 18); // 3% of height, min 18px
-  ctx.font = `600 ${fontSize}px sans-serif`;
+  const fontSize = Math.max(Math.round(h * 0.03), 16); // 3% of height, min 16px
+  ctx.font = `500 ${fontSize}px sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "bottom";
 
   const textX = w / 2;
-  const textY = h - padding; // near bottom edge
-  const shadowOffset = Math.max(Math.round(fontSize * 0.04), 1);
+  const textY = h - Math.round(h * 0.02); // ~2% from bottom edge
 
-  // Shadow pass — dark offset for readability
-  ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
-  ctx.fillText(text, textX + shadowOffset, textY + shadowOffset);
+  // Subtle shadow for readability on any background
+  ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+  ctx.fillText(text, textX + 1, textY + 1);
 
-  // Main text — white, 10% opacity (% transparent)
-  ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+  // Main text — muted white like BeReal style
+  ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
   ctx.fillText(text, textX, textY);
 
   // 4. Export as JPEG blob
