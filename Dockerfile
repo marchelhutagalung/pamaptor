@@ -30,8 +30,8 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
-# Install prisma CLI globally for running migrations via Cloud Run Jobs
-RUN npm install -g prisma
+# Install prisma CLI globally for running migrations via Cloud Run Jobs (pin to project version)
+RUN npm install -g prisma@6
 
 USER nextjs
 EXPOSE 8080
