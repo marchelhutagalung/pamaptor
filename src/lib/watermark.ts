@@ -4,7 +4,7 @@
  * onto the image before sharing.
  */
 
-const LOGO_PATH = "/logo-watermark.png";
+const LOGO_PATH = "/logo-watermark.png?v=2";
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
