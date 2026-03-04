@@ -14,10 +14,12 @@ import { addWatermark } from "@/lib/watermark";
 interface ShareButtonProps {
   imageUrl: string;
   description: string;
+  categoryLabel?: string;
+  categoryColor?: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export default function ShareButton({ imageUrl, description }: ShareButtonProps) {
+export default function ShareButton({ imageUrl, description, categoryLabel, categoryColor }: ShareButtonProps) {
   const { toast } = useToast();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -27,7 +29,7 @@ export default function ShareButton({ imageUrl, description }: ShareButtonProps)
     try {
       const res = await fetch(imageUrl);
       const blob = await res.blob();
-      const watermarked = await addWatermark(blob);
+      const watermarked = await addWatermark(blob, { categoryLabel, categoryColor });
       const file = new File([watermarked], "pamaptor.jpg", { type: "image/jpeg" });
 
       if (typeof navigator.share === "function") {

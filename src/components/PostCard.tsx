@@ -126,7 +126,12 @@ export default function PostCard({ post }: PostCardProps) {
           )}
 
           <div className="flex justify-end pt-2 border-t border-white/5">
-            <ShareButton imageUrl={post.imageUrl} description={post.description} />
+            <ShareButton
+              imageUrl={post.imageUrl}
+              description={post.description}
+              categoryLabel={post.category.label}
+              categoryColor={post.category.color}
+            />
           </div>
         </div>
       </article>

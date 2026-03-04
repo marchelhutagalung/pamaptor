@@ -40,6 +40,7 @@ const uploadSchema = z.object({
 });
 
 type UploadForm = z.infer<typeof uploadSchema>;
+type UploadFormInput = z.input<typeof uploadSchema>;
 
 type PickerMode = "choose" | "camera" | "form";
 
@@ -102,7 +103,7 @@ export default function UploadClient({ isAdmin }: { isAdmin: boolean }) {
     watch,
     setError: setFieldError,
     formState: { errors },
-  } = useForm<UploadForm>({
+  } = useForm<UploadFormInput, unknown, UploadForm>({
     resolver: zodResolver(uploadSchema),
     defaultValues: { description: "", categoryId: "", locationText: "" },
   });
