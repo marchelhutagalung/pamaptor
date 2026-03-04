@@ -13,7 +13,7 @@ const createPostSchema = z.object({
   imageUrl: imageUrlSchema,
   description: z.string().max(500, "Deskripsi maksimal 500 karakter"),
   categoryId: z.string().min(1, "Pilih kategori kejadian"),
-  locationText: z.string().min(1, "Lokasi harus diisi"),
+  locationText: z.string().optional().default(""),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
 });
@@ -67,6 +67,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Masyarakat (USER) must provide a location; admin posts may omit it
+    if (session.user.role === "USER" && !validation.data.locationText) {
+      return NextResponse.json(
+        { error: "Lokasi harus diisi" },
+        { status: 400 }
+      );
+    }
+
     // Validate category exists
     const category = await prisma.category.findUnique({
       where: { id: validation.data.categoryId, isActive: true },
@@ -87,6 +95,8 @@ export async function POST(request: NextRequest) {
         latitude: validation.data.latitude,
         longitude: validation.data.longitude,
         userId: session.user.id,
+        // Admin posts are informational announcements, not user reports
+        status: session.user.role === "ADMIN" ? "INFORMASI" : "HANYA_INFORMASI",
       },
       include: {
         category: { select: { id: true, slug: true, label: true, color: true } },

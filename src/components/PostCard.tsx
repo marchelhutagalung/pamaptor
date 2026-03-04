@@ -118,10 +118,12 @@ export default function PostCard({ post }: PostCardProps) {
             <ExpandableText text={post.description} />
           )}
 
-          <div className="flex items-start gap-1.5 text-gray-500">
-            <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            <p className="text-xs line-clamp-2">{post.locationText}</p>
-          </div>
+          {post.locationText && (
+            <div className="flex items-start gap-1.5 text-gray-500">
+              <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <p className="text-xs line-clamp-2">{post.locationText}</p>
+            </div>
+          )}
 
           <div className="flex justify-end pt-2 border-t border-white/5">
             <ShareButton imageUrl={post.imageUrl} description={post.description} />
@@ -169,10 +171,12 @@ export default function PostCard({ post }: PostCardProps) {
             className="px-5 py-5 pb-safe space-y-2.5 shrink-0 bg-black/80"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start gap-2.5">
-              <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-blue-400" />
-              <p className="text-white text-sm leading-snug">{post.locationText}</p>
-            </div>
+            {post.locationText && (
+              <div className="flex items-start gap-2.5">
+                <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-blue-400" />
+                <p className="text-white text-sm leading-snug">{post.locationText}</p>
+              </div>
+            )}
             <div className="flex items-center gap-2.5">
               <Calendar className="w-4 h-4 shrink-0 text-gray-400" />
               <p className="text-gray-300 text-sm">{fullDate}</p>

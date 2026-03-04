@@ -13,6 +13,7 @@ enum Role {
 }
 
 enum PostStatus {
+  INFORMASI
   HANYA_INFORMASI
   PERLU_PERHATIAN
   DALAM_TINDAK_LANJUT

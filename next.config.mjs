@@ -4,7 +4,9 @@ const isProd = process.env.NODE_ENV === "production";
 
 const cspDirectives = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  // 'unsafe-eval' is required by Next.js dev mode (React Fast Refresh / HMR).
+  // It is intentionally excluded from production builds.
+  `script-src 'self' 'unsafe-inline'${isProd ? "" : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://storage.googleapis.com https://cdn.pamaptor.com https://*.tile.openstreetmap.org",
   "font-src 'self'",
@@ -49,6 +51,13 @@ const nextConfig = {
         hostname: "cdn.pamaptor.com", // CDN subdomain proxying GCS (Cloudflare Worker)
         pathname: "/**",
       },
+      // Dev-only: seed data uses placeholder image services
+      ...(!isProd
+        ? [
+            { protocol: "https", hostname: "picsum.photos" },
+            { protocol: "https", hostname: "i.pravatar.cc" },
+          ]
+        : []),
     ],
   },
   experimental: {

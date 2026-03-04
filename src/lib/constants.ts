@@ -4,6 +4,7 @@
  */
 
 export const POST_STATUSES = [
+  "INFORMASI",
   "HANYA_INFORMASI",
   "PERLU_PERHATIAN",
   "DALAM_TINDAK_LANJUT",
@@ -15,6 +16,7 @@ export type PostStatusValue = (typeof POST_STATUSES)[number];
 
 /** Human-readable Indonesian labels */
 export const STATUS_LABELS: Record<string, string> = {
+  INFORMASI: "Informasi",
   HANYA_INFORMASI: "Laporan Diterima",
   PERLU_PERHATIAN: "Perlu Perhatian",
   DALAM_TINDAK_LANJUT: "Dalam Tindak Lanjut",
@@ -24,6 +26,7 @@ export const STATUS_LABELS: Record<string, string> = {
 
 /** Tailwind text-color classes */
 export const STATUS_COLORS: Record<string, string> = {
+  INFORMASI: "text-purple-400",
   HANYA_INFORMASI: "text-blue-400",
   PERLU_PERHATIAN: "text-yellow-400",
   DALAM_TINDAK_LANJUT: "text-orange-400",
@@ -33,6 +36,7 @@ export const STATUS_COLORS: Record<string, string> = {
 
 /** Tailwind bg-color classes (for dot indicators) */
 export const STATUS_DOT_COLORS: Record<string, string> = {
+  INFORMASI: "bg-purple-400",
   HANYA_INFORMASI: "bg-blue-400",
   PERLU_PERHATIAN: "bg-yellow-400",
   DALAM_TINDAK_LANJUT: "bg-orange-400",
@@ -42,6 +46,7 @@ export const STATUS_DOT_COLORS: Record<string, string> = {
 
 /** Background + text badge classes (for status pills) */
 export const STATUS_BG: Record<string, string> = {
+  INFORMASI: "bg-purple-900/50 text-purple-300",
   HANYA_INFORMASI: "bg-blue-900/50 text-blue-300",
   PERLU_PERHATIAN: "bg-yellow-900/50 text-yellow-300",
   DALAM_TINDAK_LANJUT: "bg-orange-900/50 text-orange-300",
@@ -51,6 +56,7 @@ export const STATUS_BG: Record<string, string> = {
 
 /** Notification messages sent to users when admin changes status */
 export const STATUS_NOTIFICATION_MESSAGES: Record<string, string> = {
+  INFORMASI: "",
   HANYA_INFORMASI: "Laporan Anda telah diterima.",
   PERLU_PERHATIAN: "Laporan Anda memerlukan perhatian lebih lanjut.",
   DALAM_TINDAK_LANJUT: "Laporan Anda sedang dalam tindak lanjut.",

@@ -103,42 +103,48 @@ export default function ReportDetailActions({
 
   return (
     <div className="space-y-4 pb-4">
-      {/* Status selector */}
+      {/* Status selector — hidden for admin-created info posts */}
       <div>
         <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">
           Ubah Status
         </p>
-        <div className="space-y-2">
-          {STATUS_OPTIONS.map((s) => (
-            <button
-              key={s.value}
-              onClick={() => handleStatusChange(s.value)}
-              disabled={isLoading}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors text-left disabled:opacity-50 ${
-                status === s.value
-                  ? "border-white/30 bg-white/10"
-                  : "border-white/10 bg-white/5 hover:bg-white/10"
-              }`}
-            >
-              <span
-                className={`w-3 h-3 rounded-full border-2 flex items-center justify-center ${
-                  status === s.value ? "border-white" : "border-gray-600"
+        {status === "INFORMASI" ? (
+          <div className="px-4 py-3 rounded-xl border border-purple-500/20 bg-purple-900/10 text-purple-300 text-sm">
+            Post ini adalah informasi dari admin dan tidak memiliki status laporan.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {STATUS_OPTIONS.filter((s) => s.value !== "INFORMASI").map((s) => (
+              <button
+                key={s.value}
+                onClick={() => handleStatusChange(s.value)}
+                disabled={isLoading}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors text-left disabled:opacity-50 ${
+                  status === s.value
+                    ? "border-white/30 bg-white/10"
+                    : "border-white/10 bg-white/5 hover:bg-white/10"
                 }`}
               >
-                {status === s.value && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                )}
-              </span>
-              <span
-                className={`text-sm font-medium ${
-                  status === s.value ? "text-white" : "text-gray-400"
-                }`}
-              >
-                {s.label}
-              </span>
-            </button>
-          ))}
-        </div>
+                <span
+                  className={`w-3 h-3 rounded-full border-2 flex items-center justify-center ${
+                    status === s.value ? "border-white" : "border-gray-600"
+                  }`}
+                >
+                  {status === s.value && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                  )}
+                </span>
+                <span
+                  className={`text-sm font-medium ${
+                    status === s.value ? "text-white" : "text-gray-400"
+                  }`}
+                >
+                  {s.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Pin toggle */}

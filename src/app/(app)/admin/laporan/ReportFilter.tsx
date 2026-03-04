@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X, CalendarDays } from "lucide-react";
 import { STATUS_OPTIONS as BASE_STATUS_OPTIONS } from "@/lib/constants";
 
 const STATUS_OPTIONS = [
@@ -19,6 +19,10 @@ export default function ReportFilter() {
   const [to, setTo] = useState(searchParams.get("to") || "");
   const [status, setStatus] = useState(searchParams.get("status") || "");
   const [error, setError] = useState("");
+
+  // Track focus to toggle input type for placeholder support
+  const [fromFocused, setFromFocused] = useState(false);
+  const [toFocused, setToFocused] = useState(false);
 
   const buildUrl = (overrides?: {
     q?: string;
@@ -97,32 +101,48 @@ export default function ReportFilter() {
         )}
       </div>
 
-      <div>
-        <label className="text-xs text-gray-500 mb-1 block">Dari</label>
-        <input
-          type="date"
-          value={from}
-          onChange={(e) => {
-            setFrom(e.target.value);
-            setError("");
-          }}
-          max={to || undefined}
-          className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-white text-sm [color-scheme:dark]"
-        />
+      {/* Date range — side by side, type toggles to show placeholder when empty */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block">Dari</label>
+          <div className="relative">
+            <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
+            <input
+              type={from || fromFocused ? "date" : "text"}
+              value={from}
+              placeholder="Pilih tanggal"
+              onFocus={() => setFromFocused(true)}
+              onBlur={() => setFromFocused(false)}
+              onChange={(e) => {
+                setFrom(e.target.value);
+                setError("");
+              }}
+              max={to || undefined}
+              className="w-full bg-white/10 border border-white/10 rounded-xl pl-9 pr-3 py-2 text-white text-sm [color-scheme:dark] placeholder:text-gray-500"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block">Hingga</label>
+          <div className="relative">
+            <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
+            <input
+              type={to || toFocused ? "date" : "text"}
+              value={to}
+              placeholder="Pilih tanggal"
+              onFocus={() => setToFocused(true)}
+              onBlur={() => setToFocused(false)}
+              onChange={(e) => {
+                setTo(e.target.value);
+                setError("");
+              }}
+              min={from || undefined}
+              className="w-full bg-white/10 border border-white/10 rounded-xl pl-9 pr-3 py-2 text-white text-sm [color-scheme:dark] placeholder:text-gray-500"
+            />
+          </div>
+        </div>
       </div>
-      <div>
-        <label className="text-xs text-gray-500 mb-1 block">Hingga</label>
-        <input
-          type="date"
-          value={to}
-          onChange={(e) => {
-            setTo(e.target.value);
-            setError("");
-          }}
-          min={from || undefined}
-          className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-white text-sm [color-scheme:dark]"
-        />
-      </div>
+
       <div className="flex gap-2">
         <select
           value={status}
