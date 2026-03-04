@@ -19,10 +19,18 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.role = (user as { role: string }).role;
         token.selfieUrl = (user as { selfieUrl?: string }).selfieUrl;
+        token.lastFetched = Date.now();
       }
 
-      // Always re-fetch from DB so selfieUrl / name / role stay in sync
-      if (token.id) {
+      // Re-fetch from DB only when token data is stale (>5 min old).
+      // Keeps name / selfieUrl / role in sync while avoiding a DB hit on
+      // every authenticated request — critical at high traffic (5K+ users).
+      const FIVE_MINUTES = 5 * 60 * 1000;
+      const isStale =
+        !token.lastFetched ||
+        Date.now() - (token.lastFetched as number) > FIVE_MINUTES;
+
+      if (token.id && isStale) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
           select: { selfieUrl: true, name: true, role: true },
@@ -31,6 +39,7 @@ export const authOptions: NextAuthOptions = {
           token.selfieUrl = dbUser.selfieUrl ?? undefined;
           token.name = dbUser.name;
           token.role = dbUser.role;
+          token.lastFetched = Date.now();
         }
       }
 

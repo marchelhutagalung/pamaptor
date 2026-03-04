@@ -23,5 +23,6 @@ declare module "next-auth/jwt" {
     id: string;
     role: string;
     selfieUrl?: string;
+    lastFetched?: number; // timestamp — used to throttle DB re-fetches to every 5 min
   }
 }
