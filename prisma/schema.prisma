@@ -86,6 +86,9 @@ model Post {
   @@index([categoryId])
   @@index([isRead])
   @@index([isDeleted])
+  // Compound indexes for high-traffic queries
+  @@index([isDeleted, isPinned(sort: Desc), createdAt(sort: Desc)]) // home feed (covers WHERE + ORDER BY in one scan)
+  @@index([userId, isDeleted, createdAt(sort: Desc)])               // profile page posts
 }
 
 model EmailVerification {

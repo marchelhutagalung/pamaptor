@@ -8,5 +8,6 @@ routes = [
   { pattern = "www.pamaptor.com/*", zone_name = "pamaptor.com" }
 ]
 
-[vars]
-CLOUD_RUN_ORIGIN = "https://pamaptor-556319918654.asia-southeast1.run.app"
+# CLOUD_RUN_ORIGIN is set as a Cloudflare secret (not a plain var) for security.
+# Set it once via: wrangler secret put CLOUD_RUN_ORIGIN
+# Value: https://pamaptor-556319918654.asia-southeast1.run.app

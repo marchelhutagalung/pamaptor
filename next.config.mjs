@@ -4,7 +4,7 @@ const isProd = process.env.NODE_ENV === "production";
 
 const cspDirectives = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://storage.googleapis.com https://cdn.pamaptor.com https://*.tile.openstreetmap.org",
   "font-src 'self'",
@@ -48,14 +48,6 @@ const nextConfig = {
         protocol: "https",
         hostname: "cdn.pamaptor.com", // CDN subdomain proxying GCS (Cloudflare Worker)
         pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "picsum.photos",
-      },
-      {
-        protocol: "https",
-        hostname: "i.pravatar.cc",
       },
     ],
   },
