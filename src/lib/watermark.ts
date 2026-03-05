@@ -4,7 +4,7 @@
  * onto the image before sharing.
  */
 
-const LOGO_PATH = "/logo-watermark.png?v=2";
+const LOGO_PATH = "/logo-watermark.png?v=3";
 
 interface WatermarkOptions {
   categoryLabel?: string;
