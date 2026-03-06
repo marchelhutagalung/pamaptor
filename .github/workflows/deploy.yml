@@ -34,7 +34,7 @@ jobs:
       - name: Build & push Docker image
         run: |
           docker build \
-            --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }} \
+            --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAAACnf1CGzMpL8VX6P \
             --tag ${{ env.IMAGE }}:${{ github.sha }} \
             --tag ${{ env.IMAGE }}:latest \
             .
@@ -63,7 +63,6 @@ jobs:
               SMTP_FROM=SMTP_FROM:latest,\
               ADMIN_REGISTER_SECRET=ADMIN_REGISTER_SECRET:latest,\
               CDN_URL=CDN_URL:latest,\
-              NEXT_PUBLIC_TURNSTILE_SITE_KEY=NEXT_PUBLIC_TURNSTILE_SITE_KEY:latest,\
               TURNSTILE_SECRET_KEY=TURNSTILE_SECRET_KEY:latest" \
             --allow-unauthenticated \
             --min-instances=1 \
