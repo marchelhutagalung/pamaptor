@@ -90,6 +90,7 @@ export default function PostCard({ post }: PostCardProps) {
             className="object-cover"
             sizes="(max-width: 448px) 100vw, 448px"
           />
+
         </button>
 
         {/* Footer */}

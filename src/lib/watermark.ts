@@ -98,23 +98,51 @@ export async function addWatermark(imageBlob: Blob, options: WatermarkOptions = 
   const dataUrl = await blobToDataUrl(imageBlob);
   const img = await loadImage(dataUrl);
 
+  const isPortrait = img.naturalHeight > img.naturalWidth;
+
   const canvas = document.createElement("canvas");
-  canvas.width = img.naturalWidth;
-  canvas.height = img.naturalHeight;
+
+  if (isPortrait) {
+    // Portrait → 9:16 Instagram Stories canvas, image scaled to cover
+    canvas.width = img.naturalWidth;
+    canvas.height = Math.round(img.naturalWidth * (16 / 9));
+  } else {
+    // Landscape → keep original dimensions as-is
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+  }
+
   const ctx = canvas.getContext("2d")!;
 
-  // 1. Draw original image
-  ctx.drawImage(img, 0, 0);
+  // 1. Black background (visible if image doesn't fully cover canvas)
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // 2. Draw original image — cover-fit to canvas
+  if (isPortrait) {
+    const scaleX = canvas.width / img.naturalWidth;
+    const scaleY = canvas.height / img.naturalHeight;
+    const scale = Math.max(scaleX, scaleY); // cover: use larger scale
+    const drawnW = img.naturalWidth * scale;
+    const drawnH = img.naturalHeight * scale;
+    const x = (canvas.width - drawnW) / 2;
+    const y = (canvas.height - drawnH) / 2;
+    ctx.drawImage(img, x, y, drawnW, drawnH);
+  } else {
+    ctx.drawImage(img, 0, 0);
+  }
 
   const w = canvas.width;
   const h = canvas.height;
   const padding = Math.round(w * 0.03); // ~3% of width
   let badgeMinX = padding;
+  let logoDrawnH = 0; // exposed so badge can vertically center against logo
 
   // 2. Top-left logo — 10% of image height, no background (transparent logo)
   try {
     const logo = await loadImage(LOGO_PATH);
-    const logoH = Math.round(h * 0.08);
+    logoDrawnH = Math.round(h * 0.08);
+    const logoH = logoDrawnH;
     const logoW = Math.round(logo.naturalWidth * (logoH / logo.naturalHeight));
     const logoGap = Math.round(w * 0.02);
     badgeMinX = padding + logoW + logoGap;
@@ -159,18 +187,17 @@ export async function addWatermark(imageBlob: Blob, options: WatermarkOptions = 
     const textWidth = Math.ceil(textMetrics.width);
     const badgeWidth = Math.min(textWidth + badgePaddingX * 2, maxBadgeWidth);
     const badgeHeight = categoryFontSize + badgePaddingY * 2;
-    const freeAreaCenterX = (badgeMinX + badgeMaxRight) / 2;
-    const badgeX = Math.round(
-      Math.max(badgeMinX, Math.min(freeAreaCenterX - badgeWidth / 2, badgeMaxRight - badgeWidth)),
-    );
-    const badgeY = padding;
+    // Snap badge immediately to the right of the logo, vertically centered against it
+    const badgeX = badgeMinX;
+    const badgeY = padding + Math.max(0, Math.round((logoDrawnH - badgeHeight) / 2));
     const badgeRadius = Math.round(badgeHeight / 2);
 
     drawRoundedRect(ctx, badgeX, badgeY, badgeWidth, badgeHeight, badgeRadius);
-    ctx.fillStyle = colorToRgba(options.categoryColor ?? "", 0.45) ?? "rgba(128, 128, 128, 0.45)";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.85)"; // light frosted pill background
     ctx.fill();
 
-    ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+    // Text in category color from DB
+    ctx.fillStyle = colorToRgba(options.categoryColor ?? "", 1.0) ?? "rgba(0, 0, 0, 0.85)";
     ctx.fillText(fittedText, badgeX + badgeWidth / 2, badgeY + badgeHeight / 2);
   }
 
