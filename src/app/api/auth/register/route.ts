@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { sendVerificationEmail } from "@/lib/email";
 import { rateLimit, getIP } from "@/lib/rate-limit";
+import { verifyTurnstile } from "@/lib/turnstile";
 import crypto from "crypto";
 
 const registerSchema = z.object({
@@ -11,6 +12,7 @@ const registerSchema = z.object({
   email: z.string().email("Format email tidak valid"),
   phone: z.string().optional(),
   password: z.string().min(8, "Password minimal 8 karakter"),
+  captchaToken: z.string().min(1, "CAPTCHA diperlukan"),
 });
 
 export async function POST(request: NextRequest) {
@@ -33,7 +35,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, email, phone, password } = validation.data;
+    const { name, email, phone, password, captchaToken } = validation.data;
+
+    const captchaValid = await verifyTurnstile(captchaToken);
+    if (!captchaValid) {
+      return NextResponse.json(
+        { error: "Verifikasi CAPTCHA gagal. Silakan coba lagi." },
+        { status: 400 }
+      );
+    }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {

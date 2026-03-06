@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendVerificationEmail } from "@/lib/email";
 import { rateLimit, getIP } from "@/lib/rate-limit";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 const registerAdminSchema = z.object({
   name: z.string().min(2, "Nama minimal 2 karakter"),
@@ -12,6 +13,7 @@ const registerAdminSchema = z.object({
   phone: z.string().optional(),
   password: z.string().min(8, "Password minimal 8 karakter"),
   secret: z.string().min(1, "Secret key diperlukan"),
+  captchaToken: z.string().min(1, "CAPTCHA diperlukan"),
 });
 
 export async function POST(request: NextRequest) {
@@ -34,7 +36,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, email, phone, password, secret } = validation.data;
+    const { name, email, phone, password, secret, captchaToken } = validation.data;
+
+    const captchaValid = await verifyTurnstile(captchaToken);
+    if (!captchaValid) {
+      return NextResponse.json(
+        { error: "Verifikasi CAPTCHA gagal. Silakan coba lagi." },
+        { status: 400 }
+      );
+    }
 
     // Validate secret key
     const adminSecret = process.env.ADMIN_REGISTER_SECRET;

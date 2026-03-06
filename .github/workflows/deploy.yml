@@ -61,7 +61,9 @@ jobs:
               SMTP_PASS=SMTP_PASS:latest,\
               SMTP_FROM=SMTP_FROM:latest,\
               ADMIN_REGISTER_SECRET=ADMIN_REGISTER_SECRET:latest,\
-              CDN_URL=CDN_URL:latest" \
+              CDN_URL=CDN_URL:latest,\
+              NEXT_PUBLIC_TURNSTILE_SITE_KEY=NEXT_PUBLIC_TURNSTILE_SITE_KEY:latest,\
+              TURNSTILE_SECRET_KEY=TURNSTILE_SECRET_KEY:latest" \
             --allow-unauthenticated \
             --min-instances=1 \
             --max-instances=50 \

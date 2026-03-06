@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -10,6 +10,8 @@ import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Turnstile } from "@marsidev/react-turnstile";
+import type { TurnstileInstance } from "@marsidev/react-turnstile";
 
 const loginSchema = z.object({
   email: z.string().email("Email tidak valid"),
@@ -26,6 +28,8 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [role, setRole] = useState<"Masyarakat" | "Petugas">("Masyarakat");
   const [showPassword, setShowPassword] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance>(null);
 
   useEffect(() => {
     if (searchParams.get("verified") === "true") {
@@ -51,6 +55,11 @@ function LoginForm() {
   });
 
   const onSubmit = async (data: LoginForm) => {
+    if (!captchaToken) {
+      setError("Selesaikan verifikasi CAPTCHA terlebih dahulu.");
+      return;
+    }
+
     setIsLoading(true);
     setError("");
 
@@ -58,11 +67,14 @@ function LoginForm() {
       email: data.email,
       password: data.password,
       role: role === "Petugas" ? "ADMIN" : "USER",
+      captchaToken,
       redirect: false,
     });
 
     if (result?.error) {
       setError("Email atau password salah, peran tidak sesuai, atau email belum diverifikasi.");
+      turnstileRef.current?.reset();
+      setCaptchaToken(null);
       setIsLoading(false);
       return;
     }
@@ -181,10 +193,19 @@ function LoginForm() {
           </Link>
         </div>
 
+        <Turnstile
+          ref={turnstileRef}
+          siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+          onSuccess={setCaptchaToken}
+          onExpire={() => setCaptchaToken(null)}
+          onError={() => setCaptchaToken(null)}
+          options={{ theme: "dark" }}
+        />
+
         <Button
           type="submit"
-          disabled={isLoading}
-          className="w-full h-14 rounded-full bg-white text-black font-semibold text-base hover:bg-gray-100"
+          disabled={isLoading || !captchaToken}
+          className="w-full h-14 rounded-full bg-white text-black font-semibold text-base hover:bg-gray-100 disabled:opacity-50"
         >
           {isLoading ? "Memuat..." : "Masuk"}
         </Button>

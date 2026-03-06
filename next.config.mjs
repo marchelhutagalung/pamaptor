@@ -6,11 +6,12 @@ const cspDirectives = [
   "default-src 'self'",
   // 'unsafe-eval' is required by Next.js dev mode (React Fast Refresh / HMR).
   // It is intentionally excluded from production builds.
-  `script-src 'self' 'unsafe-inline'${isProd ? "" : " 'unsafe-eval'"}`,
+  `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${isProd ? "" : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://storage.googleapis.com https://cdn.pamaptor.com https://*.tile.openstreetmap.org",
   "font-src 'self'",
-  "connect-src 'self' https://nominatim.openstreetmap.org https://*.tile.openstreetmap.org https://storage.googleapis.com https://cdn.pamaptor.com",
+  "frame-src https://challenges.cloudflare.com",
+  "connect-src 'self' https://nominatim.openstreetmap.org https://*.tile.openstreetmap.org https://storage.googleapis.com https://cdn.pamaptor.com https://challenges.cloudflare.com",
   "media-src 'self' blob:",
   "worker-src 'self' blob:",
   "frame-ancestors 'none'",

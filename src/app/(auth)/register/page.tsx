@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,6 +9,8 @@ import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Turnstile } from "@marsidev/react-turnstile";
+import type { TurnstileInstance } from "@marsidev/react-turnstile";
 
 const registerSchema = z
   .object({
@@ -49,6 +51,8 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance>(null);
 
   const {
     register,
@@ -64,6 +68,11 @@ export default function RegisterPage() {
   const selectedRole = watch("role");
 
   const onSubmit = async (data: RegisterForm) => {
+    if (!captchaToken) {
+      setError("Selesaikan verifikasi CAPTCHA terlebih dahulu.");
+      return;
+    }
+
     setIsLoading(true);
     setError("");
 
@@ -74,8 +83,8 @@ export default function RegisterPage() {
       : "/api/auth/register";
 
     const body = isPetugas
-      ? { name: data.name, email: data.email, phone: data.phone, password: data.password, secret: data.secret }
-      : { name: data.name, email: data.email, phone: data.phone, password: data.password };
+      ? { name: data.name, email: data.email, phone: data.phone, password: data.password, secret: data.secret, captchaToken }
+      : { name: data.name, email: data.email, phone: data.phone, password: data.password, captchaToken };
 
     const res = await fetch(endpoint, {
       method: "POST",
@@ -87,6 +96,8 @@ export default function RegisterPage() {
 
     if (!res.ok) {
       setError(json.error || "Registrasi gagal.");
+      turnstileRef.current?.reset();
+      setCaptchaToken(null);
       setIsLoading(false);
       return;
     }
@@ -257,10 +268,19 @@ export default function RegisterPage() {
           </div>
         )}
 
+        <Turnstile
+          ref={turnstileRef}
+          siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+          onSuccess={setCaptchaToken}
+          onExpire={() => setCaptchaToken(null)}
+          onError={() => setCaptchaToken(null)}
+          options={{ theme: "dark" }}
+        />
+
         <Button
           type="submit"
-          disabled={isLoading}
-          className="w-full h-14 rounded-full bg-white text-black font-semibold text-base hover:bg-gray-100 mt-2"
+          disabled={isLoading || !captchaToken}
+          className="w-full h-14 rounded-full bg-white text-black font-semibold text-base hover:bg-gray-100 mt-2 disabled:opacity-50"
         >
           {isLoading ? "Mendaftar..." : "Daftar"}
         </Button>
