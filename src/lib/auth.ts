@@ -14,7 +14,7 @@ export const authOptions: NextAuthOptions = {
     error: "/login",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       // On initial sign-in, populate token from user object
       if (user) {
         token.id = user.id;
@@ -23,15 +23,15 @@ export const authOptions: NextAuthOptions = {
         token.lastFetched = Date.now();
       }
 
-      // Re-fetch from DB only when token data is stale (>5 min old).
-      // Keeps name / selfieUrl / role in sync while avoiding a DB hit on
-      // every authenticated request — critical at high traffic (5K+ users).
+      // Re-fetch from DB only when token data is stale (>5 min old)
+      // OR when explicitly triggered by updateSession() (e.g. after selfie upload).
       const FIVE_MINUTES = 5 * 60 * 1000;
       const isStale =
         !token.lastFetched ||
         Date.now() - (token.lastFetched as number) > FIVE_MINUTES;
+      const forceRefresh = trigger === "update";
 
-      if (token.id && isStale) {
+      if (token.id && (isStale || forceRefresh)) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
           select: { selfieUrl: true, name: true, role: true },

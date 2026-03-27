@@ -1,20 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-
-// Fix Leaflet default marker icons (webpack/Next.js breaks the default URL resolution)
-const defaultIcon = L.icon({
-  iconUrl: "/leaflet/marker-icon.png",
-  iconRetinaUrl: "/leaflet/marker-icon-2x.png",
-  shadowUrl: "/leaflet/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
+import { useState } from "react";
+import {
+  APIProvider,
+  Map,
+  AdvancedMarker,
+  InfoWindow,
+  useApiLoadingStatus,
+  APILoadingStatus,
+} from "@vis.gl/react-google-maps";
 
 interface ReportMapProps {
   latitude: number;
@@ -22,31 +16,59 @@ interface ReportMapProps {
   locationText: string;
 }
 
-export default function ReportMap({
-  latitude,
-  longitude,
-  locationText,
-}: ReportMapProps) {
-  useEffect(() => {
-    // Ensure Leaflet uses our custom icon globally
-    L.Marker.prototype.options.icon = defaultIcon;
-  }, []);
+function MapContent({ latitude, longitude, locationText }: ReportMapProps) {
+  const status = useApiLoadingStatus();
+  const [open, setOpen] = useState(false);
+  const pos = { lat: latitude, lng: longitude };
+
+  if (status === APILoadingStatus.LOADING || status === APILoadingStatus.NOT_LOADED) {
+    return <div className="h-48 w-full bg-gray-800 rounded-xl animate-pulse" />;
+  }
+
+  if (status === APILoadingStatus.FAILED) {
+    return (
+      <div className="h-48 w-full bg-gray-900 rounded-xl flex items-center justify-center">
+        <p className="text-gray-500 text-sm text-center px-4">
+          Peta tidak dapat dimuat.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <MapContainer
-      center={[latitude, longitude]}
-      zoom={15}
-      scrollWheelZoom={false}
-      className="h-48 w-full rounded-xl z-0"
-      style={{ height: "12rem" }}
-    >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <Marker position={[latitude, longitude]} icon={defaultIcon}>
-        <Popup>{locationText}</Popup>
-      </Marker>
-    </MapContainer>
+    <div className="space-y-2">
+      <Map
+        defaultCenter={pos}
+        defaultZoom={15}
+        gestureHandling="cooperative"
+        disableDefaultUI
+        mapId="DEMO_MAP_ID"
+        className="h-48 w-full rounded-xl z-0"
+        style={{ height: "12rem" }}
+      >
+        <AdvancedMarker position={pos} onClick={() => setOpen(true)} />
+        {open && (
+          <InfoWindow position={pos} onCloseClick={() => setOpen(false)}>
+            <p className="text-sm text-gray-800">{locationText}</p>
+          </InfoWindow>
+        )}
+      </Map>
+      <a
+        href={`https://www.google.com/maps?q=${latitude},${longitude}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-blue-400 hover:bg-white/10 transition-colors"
+      >
+        Buka di Google Maps
+      </a>
+    </div>
+  );
+}
+
+export default function ReportMap({ latitude, longitude, locationText }: ReportMapProps) {
+  return (
+    <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ""}>
+      <MapContent latitude={latitude} longitude={longitude} locationText={locationText} />
+    </APIProvider>
   );
 }

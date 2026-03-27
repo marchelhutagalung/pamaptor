@@ -29,6 +29,7 @@ function LoginForm() {
   const [role, setRole] = useState<"Masyarakat" | "Petugas">("Masyarakat");
   const [showPassword, setShowPassword] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaError, setCaptchaError] = useState(false);
   const turnstileRef = useRef<TurnstileInstance>(null);
 
   useEffect(() => {
@@ -196,11 +197,23 @@ function LoginForm() {
         <Turnstile
           ref={turnstileRef}
           siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-          onSuccess={setCaptchaToken}
+          onSuccess={(token) => { setCaptchaToken(token); setCaptchaError(false); }}
           onExpire={() => setCaptchaToken(null)}
-          onError={() => setCaptchaToken(null)}
+          onError={() => { setCaptchaToken(null); setCaptchaError(true); }}
           options={{ theme: "dark" }}
         />
+        {captchaError && (
+          <p className="text-yellow-400 text-xs">
+            Verifikasi gagal.{" "}
+            <button
+              type="button"
+              className="underline"
+              onClick={() => { setCaptchaError(false); turnstileRef.current?.reset(); }}
+            >
+              Coba lagi
+            </button>
+          </p>
+        )}
 
         <Button
           type="submit"

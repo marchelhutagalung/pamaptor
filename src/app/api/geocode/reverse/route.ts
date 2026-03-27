@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-auth";
-import { reverseGeocode } from "@/lib/nominatim";
+import { reverseGeocode } from "@/lib/googlemaps";
 
 export async function GET(request: NextRequest) {
   const { error } = await requireSession();
