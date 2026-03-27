@@ -15,6 +15,17 @@ import ReportNotes from "./ReportNotes";
 import dynamic from "next/dynamic";
 import { STATUS_LABELS, STATUS_BG } from "@/lib/constants";
 
+// Parse "lat, lon" from locationText when DB fields are null (old posts)
+function parseCoords(text: string | null): { lat: number; lng: number } | null {
+  if (!text) return null;
+  const m = text.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
+  if (!m) return null;
+  const lat = parseFloat(m[1]);
+  const lng = parseFloat(m[2]);
+  if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
 const ReportMap = dynamic(() => import("@/components/ReportMap"), {
   ssr: false,
   loading: () => (
@@ -112,13 +123,13 @@ export default async function ReportDetailPage({
             <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-blue-400" />
             <p className="text-sm">{post.locationText}</p>
           </div>
-          {post.latitude && post.longitude && (
-            <ReportMap
-              latitude={post.latitude}
-              longitude={post.longitude}
-              locationText={post.locationText}
-            />
-          )}
+          {(() => {
+            const lat = post.latitude ? Number(post.latitude) : parseCoords(post.locationText)?.lat;
+            const lng = post.longitude ? Number(post.longitude) : parseCoords(post.locationText)?.lng;
+            return lat && lng ? (
+              <ReportMap latitude={lat} longitude={lng} locationText={post.locationText} />
+            ) : null;
+          })()}
         </div>
 
         {/* Timestamp */}

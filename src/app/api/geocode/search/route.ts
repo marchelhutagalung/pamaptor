@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-auth";
-import { searchLocation } from "@/lib/nominatim";
+import { searchLocation } from "@/lib/googlemaps";
 
 export async function GET(request: NextRequest) {
   const { error } = await requireSession();

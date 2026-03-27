@@ -119,7 +119,7 @@ export default function PostCard({ post }: PostCardProps) {
             <ExpandableText text={post.description} />
           )}
 
-          {post.locationText && (
+          {post.locationText && !/^-?\d+\.?\d*,\s*-?\d+\.?\d*$/.test(post.locationText) && (
             <div className="flex items-start gap-1.5 text-gray-500">
               <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" />
               <p className="text-xs line-clamp-2">{post.locationText}</p>
@@ -177,7 +177,7 @@ export default function PostCard({ post }: PostCardProps) {
             className="px-5 py-5 pb-safe space-y-2.5 shrink-0 bg-black/80"
             onClick={(e) => e.stopPropagation()}
           >
-            {post.locationText && (
+            {post.locationText && !/^-?\d+\.?\d*,\s*-?\d+\.?\d*$/.test(post.locationText) && (
               <div className="flex items-start gap-2.5">
                 <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-blue-400" />
                 <p className="text-white text-sm leading-snug">{post.locationText}</p>
