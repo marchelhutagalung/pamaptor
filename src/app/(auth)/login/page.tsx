@@ -25,6 +25,8 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [unverifiedEmail, setUnverifiedEmail] = useState("");
+  const [resendLoading, setResendLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [role, setRole] = useState<"Masyarakat" | "Petugas">("Masyarakat");
   const [showPassword, setShowPassword] = useState(false);
@@ -73,7 +75,13 @@ function LoginForm() {
     });
 
     if (result?.error) {
-      setError("Email atau password salah, peran tidak sesuai, atau email belum diverifikasi.");
+      if (result.error === "EmailNotVerified") {
+        setError("Email belum diverifikasi. Cek inbox Anda atau kirim ulang link verifikasi.");
+        setUnverifiedEmail(data.email);
+      } else {
+        setError("Email atau password salah, atau peran tidak sesuai.");
+        setUnverifiedEmail("");
+      }
       turnstileRef.current?.reset();
       setCaptchaToken(null);
       setIsLoading(false);
@@ -99,6 +107,24 @@ function LoginForm() {
     }
   };
 
+  const handleResend = async () => {
+    if (!unverifiedEmail) return;
+    setResendLoading(true);
+    const res = await fetch("/api/auth/resend-verification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: unverifiedEmail }),
+    });
+    setResendLoading(false);
+    if (res.status === 429) {
+      setError("Terlalu banyak percobaan. Tunggu 24 jam sebelum mengirim ulang.");
+      return;
+    }
+    setError("");
+    setUnverifiedEmail("");
+    setMessage("Link verifikasi baru telah dikirim. Cek email Anda.");
+  };
+
   return (
     <div className="text-white">
       <div className="mb-10">
@@ -112,8 +138,18 @@ function LoginForm() {
         </div>
       )}
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-red-900/50 text-red-300 text-sm">
-          {error}
+        <div className="mb-4 p-3 rounded-lg bg-red-900/50 text-red-300 text-sm space-y-2">
+          <p>{error}</p>
+          {unverifiedEmail && (
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resendLoading}
+              className="underline text-red-200 hover:text-white disabled:opacity-50"
+            >
+              {resendLoading ? "Mengirim..." : "Kirim ulang email verifikasi"}
+            </button>
+          )}
         </div>
       )}
 
