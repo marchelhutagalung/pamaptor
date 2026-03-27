@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Home, FileText, User } from "lucide-react";
+import { Home, FileText, User, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNotifications } from "@/hooks/useNotifications";
 
 const navItems = [
   { href: "/home", icon: Home, label: "Beranda" },
   { href: "/admin/laporan", icon: FileText, label: "Laporan", adminOnly: true },
+  { href: "/notifikasi", icon: Bell, label: "Notifikasi", userOnly: true },
   { href: "/profile", icon: User, label: "Profil" },
 ];
 
@@ -19,12 +20,14 @@ export default function BottomNav() {
   const isAdmin = session?.user.role === "ADMIN";
   const isUser = session?.user.role === "USER";
 
-  const { unreadCount, markAllRead } = useNotifications({
+  const { unreadCount } = useNotifications({
     enabled: !!session && isUser,
   });
 
   const visibleItems = navItems.filter(
-    (item) => !item.adminOnly || isAdmin
+    (item) =>
+      (!item.adminOnly || isAdmin) &&
+      (!item.userOnly || isUser)
   );
 
   return (
@@ -34,21 +37,12 @@ export default function BottomNav() {
           const isActive =
             pathname === item.href || pathname.startsWith(item.href + "/");
 
-          // Show unread badge on Home tab for regular users only
-          const showBadge = item.href === "/home" && isUser && unreadCount > 0;
-
-          const handleClick = () => {
-            // Mark all notifications as read when user taps Home tab
-            if (item.href === "/home" && isUser && unreadCount > 0) {
-              markAllRead();
-            }
-          };
+          const showBadge = item.href === "/notifikasi" && isUser && unreadCount > 0;
 
           return (
             <Link
               key={item.href}
               href={item.href}
-              onClick={handleClick}
               className={cn(
                 "flex-1 flex flex-col items-center justify-center py-3 gap-1 transition-colors",
                 isActive ? "text-white" : "text-gray-500"

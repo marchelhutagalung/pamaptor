@@ -245,6 +245,18 @@ echo -n "YOUR_ADMIN_REGISTER_SECRET"           | gcloud secrets create ADMIN_REG
 
 # CDN URL — after you deploy the Cloudflare Worker in Phase 8 CDN section
 echo -n "https://cdn.pamaptor.com"             | gcloud secrets create CDN_URL --data-file=- --replication-policy=automatic
+
+# Cloudflare Turnstile — server-side secret key
+echo -n "YOUR_TURNSTILE_SECRET_KEY"            | gcloud secrets create TURNSTILE_SECRET_KEY --data-file=- --replication-policy=automatic
+
+# Google Maps — server-side geocoding key (Geocoding API only, no HTTP referrer restriction)
+# Get from: console.cloud.google.com → APIs & Services → Credentials
+echo -n "YOUR_GOOGLE_MAPS_SERVER_KEY"          | gcloud secrets create GOOGLE_MAPS_SERVER_KEY --data-file=- --replication-policy=automatic
+
+# Google Maps — public client key (Maps JavaScript API only)
+# Restrict: HTTP referrers → https://pamaptor.com/*
+# Stored in Secret Manager AND baked into Docker image at build time by the deploy workflow.
+echo -n "YOUR_GOOGLE_MAPS_API_KEY"             | gcloud secrets create NEXT_PUBLIC_GOOGLE_MAPS_API_KEY --data-file=- --replication-policy=automatic
 ```
 
 ---

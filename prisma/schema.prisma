@@ -78,6 +78,10 @@ model Post {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  officerLatitude          Float?
+  officerLongitude         Float?
+  officerLocationUpdatedAt DateTime?
+
   notes         ReportNote[]
   notifications Notification[]
 
