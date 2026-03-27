@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Pin, PinOff, Trash2, Loader2 } from "lucide-react";
+import { Pin, PinOff, Trash2, Loader2, MapPin, StopCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { STATUS_OPTIONS } from "@/lib/constants";
+import { formatDistanceToNow } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 
 interface ReportDetailActionsProps {
   postId: string;
@@ -24,6 +26,88 @@ export default function ReportDetailActions({
   const [isLoading, setIsLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Location sharing state
+  const [isSharingLocation, setIsSharingLocation] = useState(false);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [lastLocationUpdate, setLastLocationUpdate] = useState<Date | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const sendLocation = useCallback(async () => {
+    setIsGettingLocation(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+        })
+      );
+
+      const res = await fetch(`/api/admin/reports/${postId}/officer-location`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        }),
+      });
+
+      if (res.ok) {
+        setLastLocationUpdate(new Date());
+      } else {
+        const data = await res.json();
+        toast({
+          title: "Gagal memperbarui lokasi",
+          description: data.error ?? "Terjadi kesalahan.",
+          variant: "destructive",
+        });
+        stopSharing();
+      }
+    } catch (err) {
+      const isGeoError = err instanceof GeolocationPositionError;
+      toast({
+        title: "Gagal mendapatkan lokasi",
+        description: isGeoError
+          ? err.code === 1
+            ? "Izin lokasi ditolak. Aktifkan di pengaturan browser."
+            : "GPS tidak tersedia. Pastikan perangkat mendukung lokasi."
+          : "Terjadi kesalahan. Silakan coba lagi.",
+        variant: "destructive",
+      });
+      stopSharing();
+    } finally {
+      setIsGettingLocation(false);
+    }
+  }, [postId, toast]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const stopSharing = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    setIsSharingLocation(false);
+  }, []);
+
+  const startSharing = useCallback(async () => {
+    setIsSharingLocation(true);
+    await sendLocation();
+    intervalRef.current = setInterval(sendLocation, 300_000); // every 5 minutes
+    toast({ title: "Berbagi lokasi aktif", description: "Lokasi Anda diperbarui setiap 5 menit." });
+  }, [sendLocation, toast]);
+
+  // Clean up interval on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
+  // Stop sharing if status changes away from DALAM_TINDAK_LANJUT
+  useEffect(() => {
+    if (status !== "DALAM_TINDAK_LANJUT" && isSharingLocation) {
+      stopSharing();
+    }
+  }, [status, isSharingLocation, stopSharing]);
 
   const update = async (data: { status?: string; isPinned?: boolean }) => {
     setIsLoading(true);
@@ -146,6 +230,61 @@ export default function ReportDetailActions({
           </div>
         )}
       </div>
+
+      {/* Officer location sharing — only shown when DALAM_TINDAK_LANJUT */}
+      {status === "DALAM_TINDAK_LANJUT" && (
+        <div>
+          <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">
+            Lokasi Petugas
+          </p>
+          {!isSharingLocation ? (
+            <button
+              onClick={startSharing}
+              disabled={isGettingLocation}
+              className="w-full h-12 rounded-xl border border-orange-500/30 bg-orange-900/10 text-orange-300 hover:bg-orange-900/20 flex items-center justify-center gap-2 disabled:opacity-50 transition-colors"
+            >
+              {isGettingLocation ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <MapPin className="w-4 h-4" />
+              )}
+              <span className="text-sm font-medium">Mulai Bagikan Lokasi</span>
+            </button>
+          ) : (
+            <div className="rounded-xl border border-orange-500/30 bg-orange-900/10 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
+                  <span className="text-sm text-orange-300 font-medium">Lokasi Aktif</span>
+                </div>
+                <button
+                  onClick={stopSharing}
+                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-400 transition-colors"
+                >
+                  <StopCircle className="w-3.5 h-3.5" />
+                  Berhenti
+                </button>
+              </div>
+              {lastLocationUpdate && (
+                <p className="text-xs text-gray-500">
+                  Diperbarui{" "}
+                  {formatDistanceToNow(lastLocationUpdate, {
+                    addSuffix: true,
+                    locale: idLocale,
+                  })}
+                  {" · "}diperbarui otomatis setiap 5 menit
+                </p>
+              )}
+              {isGettingLocation && (
+                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Memperbarui lokasi...
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Pin toggle */}
       <button

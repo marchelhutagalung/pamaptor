@@ -77,10 +77,20 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    await sendVerificationEmail(email, token);
+    let emailSent = true;
+    try {
+      await sendVerificationEmail(email, token);
+    } catch (emailError) {
+      emailSent = false;
+      console.error("Register: failed to send verification email to", email, emailError);
+    }
 
     return NextResponse.json(
-      { message: "Registrasi berhasil. Silakan cek email untuk verifikasi." },
+      {
+        message: emailSent
+          ? "Registrasi berhasil. Silakan cek email untuk verifikasi."
+          : "Akun berhasil dibuat, tetapi email verifikasi gagal terkirim. Silakan hubungi admin.",
+      },
       { status: 201 }
     );
   } catch (error) {

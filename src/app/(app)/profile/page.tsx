@@ -30,6 +30,8 @@ export default async function ProfilePage() {
         category: { select: { id: true, slug: true, label: true, color: true } },
         description: true,
         locationText: true,
+        latitude: true,
+        longitude: true,
         status: true,
         createdAt: true,
       },

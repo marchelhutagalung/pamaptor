@@ -33,8 +33,10 @@ jobs:
 
       - name: Build & push Docker image
         run: |
+          MAPS_KEY=$(gcloud secrets versions access latest --secret=NEXT_PUBLIC_GOOGLE_MAPS_API_KEY)
           docker build \
             --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAAACnf1CGzMpL8VX6P \
+            --build-arg NEXT_PUBLIC_GOOGLE_MAPS_API_KEY="$MAPS_KEY" \
             --tag ${{ env.IMAGE }}:${{ github.sha }} \
             --tag ${{ env.IMAGE }}:latest \
             .
@@ -63,7 +65,9 @@ jobs:
               SMTP_FROM=SMTP_FROM:latest,\
               ADMIN_REGISTER_SECRET=ADMIN_REGISTER_SECRET:latest,\
               CDN_URL=CDN_URL:latest,\
-              TURNSTILE_SECRET_KEY=TURNSTILE_SECRET_KEY:latest" \
+              TURNSTILE_SECRET_KEY=TURNSTILE_SECRET_KEY:latest,\
+              GOOGLE_MAPS_SERVER_KEY=GOOGLE_MAPS_SERVER_KEY:latest,\
+              NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:latest" \
             --allow-unauthenticated \
             --min-instances=1 \
             --max-instances=50 \
