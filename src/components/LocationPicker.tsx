@@ -75,25 +75,12 @@ export default function LocationPicker({ onSelect, value }: LocationPickerProps)
     return () => controller.abort();
   }, [debouncedQuery]);
 
-  const detectLocation = async () => {
+  const detectLocation = () => {
     setLocationError("");
 
     if (!navigator.geolocation) {
       setLocationError("Browser Anda tidak mendukung geolokasi. Cari lokasi secara manual.");
       return;
-    }
-
-    // Check permission state first so we can show a useful message if already denied
-    if (navigator.permissions) {
-      try {
-        const status = await navigator.permissions.query({ name: "geolocation" });
-        if (status.state === "denied") {
-          setLocationError("Izin lokasi ditolak. Buka pengaturan browser Anda dan izinkan akses lokasi untuk situs ini.");
-          return;
-        }
-      } catch {
-        // Permissions API not supported on this browser — continue anyway
-      }
     }
 
     setIsDetecting(true);
