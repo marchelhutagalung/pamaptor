@@ -24,7 +24,7 @@ const securityHeaders = [
   { key: "X-DNS-Prefetch-Control", value: "on" },
   {
     key: "Permissions-Policy",
-    value: "camera=self, geolocation=self, microphone=()",
+    value: "camera=(self), geolocation=(self), microphone=()",
   },
   { key: "Content-Security-Policy", value: cspDirectives },
   ...(isProd
