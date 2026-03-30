@@ -47,7 +47,7 @@ export default function ReportChart({
             >
               {/* Category badge */}
               <span
-                className="self-start text-[11px] font-semibold px-2 py-0.5 rounded-full truncate max-w-full"
+                className="self-start text-[11px] font-semibold px-2 py-0.5 rounded-full max-w-full break-words"
                 style={{
                   backgroundColor: `${cat.color}26`, // ~15% opacity
                   color: cat.color,
