@@ -17,6 +17,16 @@ export default function ReportChart({
   categoryCounts: CategoryCount[];
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [expandedLabels, setExpandedLabels] = useState<Set<string>>(new Set());
+
+  const toggleLabel = (label: string) => {
+    setExpandedLabels((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  };
 
   if (categoryCounts.length === 0) {
     return (
@@ -46,15 +56,19 @@ export default function ReportChart({
               className="bg-white/5 rounded-2xl p-3.5 border border-white/10 flex flex-col gap-2"
             >
               {/* Category badge */}
-              <span
-                className="self-start text-[11px] font-semibold px-2 py-0.5 rounded-full max-w-full break-words"
+              <button
+                type="button"
+                onClick={() => toggleLabel(cat.label)}
+                className={`self-start text-left text-[11px] font-semibold px-2 py-0.5 rounded-full max-w-full break-words transition-all duration-200 ${
+                  expandedLabels.has(cat.label) ? "" : "line-clamp-2"
+                }`}
                 style={{
                   backgroundColor: `${cat.color}26`, // ~15% opacity
                   color: cat.color,
                 }}
               >
                 {cat.label}
-              </span>
+              </button>
 
               {/* Count */}
               <p className="text-3xl font-bold text-white leading-none">
