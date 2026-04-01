@@ -47,48 +47,48 @@ export default function ReportChart({
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="flex flex-col gap-1">
         {visible.map((cat) => {
           const pct = total > 0 ? Math.round((cat.count / total) * 100) : 0;
+          const isLabelExpanded = expandedLabels.has(cat.label);
           return (
-            <div
+            <button
               key={cat.label}
-              className="bg-white/5 rounded-2xl p-3.5 border border-white/10 flex flex-col gap-2"
+              type="button"
+              onClick={() => toggleLabel(cat.label)}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left w-full"
             >
-              {/* Category badge */}
-              <button
-                type="button"
-                onClick={() => toggleLabel(cat.label)}
-                className={`self-start text-left text-[11px] font-semibold px-2 py-0.5 rounded-full max-w-full break-words transition-all duration-200 ${
-                  expandedLabels.has(cat.label) ? "" : "line-clamp-2"
-                }`}
-                style={{
-                  backgroundColor: `${cat.color}26`, // ~15% opacity
-                  color: cat.color,
-                }}
-              >
-                {cat.label}
-              </button>
+              {/* Color dot */}
+              <span
+                className="shrink-0 w-2 h-2 rounded-full"
+                style={{ backgroundColor: cat.color }}
+              />
 
-              {/* Count */}
-              <p className="text-3xl font-bold text-white leading-none">
-                {cat.count}
-              </p>
-
-              {/* Percentage label */}
-              <p className="text-xs text-gray-500">{pct}% dari total</p>
-
-              {/* Progress bar */}
-              <div className="h-1 w-full rounded-full bg-white/10 overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: `${pct}%`,
-                    backgroundColor: cat.color,
-                  }}
-                />
+              {/* Label + progress */}
+              <div className="flex-1 min-w-0">
+                <p
+                  className={`text-xs font-medium text-white/90 transition-all duration-200 ${
+                    isLabelExpanded ? "" : "truncate"
+                  }`}
+                >
+                  {cat.label}
+                </p>
+                <div className="mt-1.5 h-0.5 w-full rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${pct}%`, backgroundColor: cat.color }}
+                  />
+                </div>
               </div>
-            </div>
+
+              {/* Count + pct */}
+              <div className="shrink-0 text-right">
+                <p className="text-sm font-bold text-white leading-none">
+                  {cat.count}
+                </p>
+                <p className="text-[10px] text-gray-500 mt-0.5">{pct}%</p>
+              </div>
+            </button>
           );
         })}
       </div>
