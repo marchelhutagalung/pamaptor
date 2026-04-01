@@ -139,13 +139,18 @@ export default async function LaporanPage({
       </div>
 
       {/* Ringkasan Laporan */}
-      <div className="mx-4 mb-4 p-4 bg-white/5 rounded-2xl border border-white/10">
-        <div className="flex items-baseline justify-between mb-3">
+      <details className="mx-4 mb-4 bg-white/5 rounded-2xl border border-white/10 group" open>
+        <summary className="flex items-center justify-between px-4 py-3 cursor-pointer list-none select-none">
           <p className="text-sm font-medium text-gray-400">Ringkasan Laporan</p>
-          <p className="text-xs text-gray-600">{totalCount} total</p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-gray-600">{totalCount} total</p>
+            <ChevronRight className="w-3.5 h-3.5 text-gray-600 transition-transform duration-200 group-open:rotate-90" />
+          </div>
+        </summary>
+        <div className="px-4 pb-4">
+          <ReportChart categoryCounts={categoryCounts} />
         </div>
-        <ReportChart categoryCounts={categoryCounts} />
-      </div>
+      </details>
 
       {/* Filters */}
       <Suspense fallback={<div className="px-4 mb-4 h-24" />}>
