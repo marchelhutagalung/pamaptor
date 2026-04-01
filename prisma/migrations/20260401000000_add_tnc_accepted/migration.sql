@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "tncAccepted" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "User" ADD COLUMN "tncAcceptedAt" TIMESTAMP(3);

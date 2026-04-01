@@ -49,6 +49,8 @@ model User {
   role          Role      @default(USER)
   selfieUrl     String?
   emailVerified DateTime?
+  tncAccepted   Boolean   @default(false)
+  tncAcceptedAt DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
