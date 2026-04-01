@@ -12,6 +12,7 @@ const registerSchema = z.object({
   email: z.string().email("Format email tidak valid"),
   phone: z.string().optional(),
   password: z.string().min(8, "Password minimal 8 karakter"),
+  tncAccepted: z.literal(true, { errorMap: () => ({ message: "Anda harus menyetujui syarat dan ketentuan" }) }),
   captchaToken: z.string().min(1, "CAPTCHA diperlukan"),
 });
 
@@ -61,6 +62,8 @@ export async function POST(request: NextRequest) {
         email,
         phone: phone || null,
         passwordHash,
+        tncAccepted: true,
+        tncAcceptedAt: new Date(),
       },
     });
 

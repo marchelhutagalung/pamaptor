@@ -26,6 +26,9 @@ const registerSchema = z
     confirmPassword: z.string(),
     role: z.enum(["Masyarakat", "Petugas"]),
     secret: z.string().optional(),
+    tncAccepted: z.boolean().refine((val) => val === true, {
+      message: "Anda harus menyetujui syarat dan ketentuan",
+    }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Konfirmasi password tidak cocok",
@@ -63,7 +66,7 @@ export default function RegisterPage() {
     formState: { errors },
   } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { role: "Masyarakat" },
+    defaultValues: { role: "Masyarakat", tncAccepted: false },
   });
 
   const selectedRole = watch("role");
@@ -84,8 +87,8 @@ export default function RegisterPage() {
       : "/api/auth/register";
 
     const body = isPetugas
-      ? { name: data.name, email: data.email, phone: data.phone, password: data.password, secret: data.secret, captchaToken }
-      : { name: data.name, email: data.email, phone: data.phone, password: data.password, captchaToken };
+      ? { name: data.name, email: data.email, phone: data.phone, password: data.password, secret: data.secret, tncAccepted: true, captchaToken }
+      : { name: data.name, email: data.email, phone: data.phone, password: data.password, tncAccepted: true, captchaToken };
 
     const res = await fetch(endpoint, {
       method: "POST",
@@ -269,6 +272,56 @@ export default function RegisterPage() {
           </div>
         )}
 
+        {/* TNC checkbox */}
+        <div>
+          <label className="flex items-start gap-3 cursor-pointer group">
+            <div className="relative mt-0.5 shrink-0">
+              <input
+                type="checkbox"
+                className="sr-only"
+                {...register("tncAccepted")}
+              />
+              <div
+                onClick={() => setValue("tncAccepted", !watch("tncAccepted"), { shouldValidate: true })}
+                className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                  watch("tncAccepted")
+                    ? "bg-white border-white"
+                    : "bg-transparent border-white/30 group-hover:border-white/60"
+                }`}
+              >
+                {watch("tncAccepted") && (
+                  <svg
+                    className="w-3 h-3 text-black"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+            </div>
+            <span className="text-sm text-gray-400 leading-snug">
+              Saya telah membaca dan menyetujui{" "}
+              <Link
+                href="/tnc"
+                target="_blank"
+                className="text-white underline underline-offset-2 hover:text-gray-300"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Syarat dan Ketentuan
+              </Link>{" "}
+              penggunaan Pamaptor
+            </span>
+          </label>
+          {errors.tncAccepted && (
+            <p className="text-red-400 text-xs mt-1 pl-8">
+              {errors.tncAccepted.message}
+            </p>
+          )}
+        </div>
+
         <Turnstile
           ref={turnstileRef}
           siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
@@ -292,7 +345,7 @@ export default function RegisterPage() {
 
         <Button
           type="submit"
-          disabled={isLoading || !captchaToken}
+          disabled={isLoading || !captchaToken || !watch("tncAccepted")}
           className="w-full h-14 rounded-full bg-white text-black font-semibold text-base hover:bg-gray-100 mt-2 disabled:opacity-50"
         >
           {isLoading ? "Mendaftar..." : "Daftar"}
