@@ -13,7 +13,7 @@ const registerAdminSchema = z.object({
   phone: z.string().optional(),
   password: z.string().min(8, "Password minimal 8 karakter"),
   secret: z.string().min(1, "Secret key diperlukan"),
-  tncAccepted: z.literal(true, { errorMap: () => ({ message: "Anda harus menyetujui syarat dan ketentuan" }) }),
+  tncAccepted: z.literal(true, { message: "Anda harus menyetujui syarat dan ketentuan" }),
   captchaToken: z.string().min(1, "CAPTCHA diperlukan"),
 });
 
