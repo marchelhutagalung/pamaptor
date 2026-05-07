@@ -14,6 +14,8 @@ export async function verifyTurnstile(token: string): Promise<boolean> {
   // Cloudflare Turnstile always-pass test secret — allow in dev/test
   if (secret === "1x0000000000000000000000000000000AA") return true;
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
   try {
     const res = await fetch(
       "https://challenges.cloudflare.com/turnstile/v0/siteverify",
@@ -21,6 +23,7 @@ export async function verifyTurnstile(token: string): Promise<boolean> {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ secret, response: token }),
+        signal: controller.signal,
       }
     );
 
@@ -28,5 +31,7 @@ export async function verifyTurnstile(token: string): Promise<boolean> {
     return data.success === true;
   } catch {
     return false;
+  } finally {
+    clearTimeout(timer);
   }
 }

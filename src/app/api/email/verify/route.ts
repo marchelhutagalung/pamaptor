@@ -5,7 +5,7 @@ import { rateLimit, getIP } from "@/lib/rate-limit";
 const APP_URL = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 export async function GET(request: NextRequest) {
-  const rl = rateLimit(getIP(request), "email-verify", 10, 15 * 60 * 1000);
+  const rl = await rateLimit(getIP(request), "email-verify", 10, 15 * 60 * 1000);
   if (!rl.allowed) {
     return NextResponse.redirect(`${APP_URL}/login?error=too_many_requests`);
   }

@@ -5,7 +5,7 @@ import { rateLimit, getIP } from "@/lib/rate-limit";
 import crypto from "crypto";
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(getIP(request), "resend-verification", 3, 24 * 60 * 60 * 1000);
+  const rl = await rateLimit(getIP(request), "resend-verification", 3, 24 * 60 * 60 * 1000);
   if (!rl.allowed) {
     return NextResponse.json(
       { error: "Terlalu banyak permintaan. Coba lagi nanti." },

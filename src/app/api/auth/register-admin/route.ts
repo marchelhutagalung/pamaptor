@@ -18,7 +18,7 @@ const registerAdminSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(getIP(request), "register-admin", 5, 60 * 60 * 1000);
+  const rl = await rateLimit(getIP(request), "register-admin", 5, 60 * 60 * 1000);
   if (!rl.allowed) {
     return NextResponse.json(
       { error: "Terlalu banyak percobaan. Coba lagi nanti." },

@@ -22,9 +22,12 @@ export async function GET(request: NextRequest) {
     };
   }
 
+  const EXPORT_LIMIT = 5000;
+
   const posts = await prisma.post.findMany({
     where,
     orderBy: { createdAt: "desc" },
+    take: EXPORT_LIMIT,
     include: {
       category: { select: { label: true } },
       user: {
@@ -61,12 +64,14 @@ export async function GET(request: NextRequest) {
   const fromLabel = from || "awal";
   const toLabel = to || format(new Date(), "yyyy-MM-dd");
   const filename = `pamaptor-laporan-${fromLabel}-${toLabel}.xlsx`;
+  const truncated = posts.length === EXPORT_LIMIT;
 
   return new Response(buffer, {
     headers: {
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename="${filename}"`,
+      ...(truncated ? { "X-Export-Truncated": `true; limit=${EXPORT_LIMIT}` } : {}),
     },
   });
 }
