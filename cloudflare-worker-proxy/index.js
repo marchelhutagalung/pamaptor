@@ -16,18 +16,18 @@ export default {
     // Build the backend URL (same path/query, different origin)
     const backendUrl = new URL(url.pathname + url.search, origin);
 
+    // Build mutable headers — request.headers is immutable after construction
+    const headers = new Headers(request.headers);
+    headers.set("Host", new URL(origin).hostname);
+    headers.set("X-Forwarded-Host", url.hostname);
+
     // Forward the request with the Cloud Run Host header
     const modifiedRequest = new Request(backendUrl.toString(), {
       method: request.method,
-      headers: request.headers,
+      headers,
       body: request.body,
       redirect: "manual",
     });
-
-    // Override the Host header to match Cloud Run
-    modifiedRequest.headers.set("Host", new URL(origin).hostname);
-    // Pass the original host so the app can use it for redirects
-    modifiedRequest.headers.set("X-Forwarded-Host", url.hostname);
 
     const response = await fetch(modifiedRequest);
 
