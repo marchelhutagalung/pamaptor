@@ -46,15 +46,15 @@ docker --version
 # Login to GCP
 gcloud auth login
 
-# Create new project  (replace project-eca091cb-172a-4d4f-b1e with your preferred project ID)
-gcloud projects create project-eca091cb-172a-4d4f-b1e --name="Pamaptor"
+# Create new project  (replace pamaptor-prd with your preferred project ID)
+gcloud projects create pamaptor-prd --name="Pamaptor"
 
 # Set as default project
-gcloud config set project project-eca091cb-172a-4d4f-b1e
+gcloud config set project pamaptor-prd
 
 # Link billing account (required for Cloud Run + Cloud SQL)
 # Go to: https://console.cloud.google.com/billing
-# Link the billing account to project-eca091cb-172a-4d4f-b1e
+# Link the billing account to pamaptor-prd
 ```
 
 ### 1.2 Enable required APIs
@@ -86,7 +86,7 @@ gcloud sql instances create pamaptor-db \
 
 # Note down the connection name — you will need it in Phase 5
 gcloud sql instances describe pamaptor-db --format="value(connectionName)"
-# Example output: project-eca091cb-172a-4d4f-b1e:asia-southeast1:pamaptor-db
+# Example output: pamaptor-prd:asia-southeast1:pamaptor-db
 ```
 
 ### 2.2 Create database and user
@@ -106,7 +106,7 @@ gcloud sql users create pamaptor_user \
 Cloud Run connects to PostgreSQL via Unix socket (not TCP). Use this format:
 
 ```
-postgresql://pamaptor_user:YOUR_DB_PASSWORD@localhost/pamaptor?host=/cloudsql/project-eca091cb-172a-4d4f-b1e:asia-southeast1:pamaptor-db
+postgresql://pamaptor_user:YOUR_DB_PASSWORD@localhost/pamaptor?host=/cloudsql/pamaptor-prd:asia-southeast1:pamaptor-db
 ```
 
 ---
@@ -136,18 +136,18 @@ gcloud iam service-accounts create pamaptor-cloudrun \
   --display-name="Pamaptor Cloud Run SA"
 
 # Cloud SQL
-gcloud projects add-iam-policy-binding project-eca091cb-172a-4d4f-b1e \
-  --member="serviceAccount:pamaptor-cloudrun@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding pamaptor-prd \
+  --member="serviceAccount:pamaptor-cloudrun@pamaptor-prd.iam.gserviceaccount.com" \
   --role="roles/cloudsql.client"
 
 # GCS
-gcloud projects add-iam-policy-binding project-eca091cb-172a-4d4f-b1e \
-  --member="serviceAccount:pamaptor-cloudrun@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding pamaptor-prd \
+  --member="serviceAccount:pamaptor-cloudrun@pamaptor-prd.iam.gserviceaccount.com" \
   --role="roles/storage.objectAdmin"
 
 # Secret Manager
-gcloud projects add-iam-policy-binding project-eca091cb-172a-4d4f-b1e \
-  --member="serviceAccount:pamaptor-cloudrun@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding pamaptor-prd \
+  --member="serviceAccount:pamaptor-cloudrun@pamaptor-prd.iam.gserviceaccount.com" \
   --role="roles/secretmanager.secretAccessor"
 ```
 
@@ -158,19 +158,19 @@ gcloud iam service-accounts create pamaptor-github-actions \
   --display-name="Pamaptor GitHub Actions SA"
 
 # Push Docker images
-gcloud projects add-iam-policy-binding project-eca091cb-172a-4d4f-b1e \
-  --member="serviceAccount:pamaptor-github-actions@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding pamaptor-prd \
+  --member="serviceAccount:pamaptor-github-actions@pamaptor-prd.iam.gserviceaccount.com" \
   --role="roles/artifactregistry.writer"
 
 # Deploy Cloud Run
-gcloud projects add-iam-policy-binding project-eca091cb-172a-4d4f-b1e \
-  --member="serviceAccount:pamaptor-github-actions@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding pamaptor-prd \
+  --member="serviceAccount:pamaptor-github-actions@pamaptor-prd.iam.gserviceaccount.com" \
   --role="roles/run.admin"
 
 # Allow deploying as the Cloud Run SA
 gcloud iam service-accounts add-iam-policy-binding \
-  pamaptor-cloudrun@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com \
-  --member="serviceAccount:pamaptor-github-actions@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com" \
+  pamaptor-cloudrun@pamaptor-prd.iam.gserviceaccount.com \
+  --member="serviceAccount:pamaptor-github-actions@pamaptor-prd.iam.gserviceaccount.com" \
   --role="roles/iam.serviceAccountUser"
 ```
 
@@ -181,13 +181,13 @@ gcloud iam service-accounts add-iam-policy-binding \
 ```bash
 # Create the Workload Identity Pool
 gcloud iam workload-identity-pools create "github-pool" \
-  --project="project-eca091cb-172a-4d4f-b1e" \
+  --project="pamaptor-prd" \
   --location="global" \
   --display-name="GitHub Actions Pool"
 
 # Create the OIDC Provider  (replace YOUR_GITHUB_USERNAME/pamaptor with your actual repo)
 gcloud iam workload-identity-pools providers create-oidc "github-provider" \
-  --project="project-eca091cb-172a-4d4f-b1e" \
+  --project="pamaptor-prd" \
   --location="global" \
   --workload-identity-pool="github-pool" \
   --display-name="GitHub Provider" \
@@ -197,14 +197,14 @@ gcloud iam workload-identity-pools providers create-oidc "github-provider" \
 
 # Bind the SA to your GitHub repo  (replace YOUR_GITHUB_USERNAME/pamaptor)
 gcloud iam service-accounts add-iam-policy-binding \
-  pamaptor-github-actions@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com \
-  --project="project-eca091cb-172a-4d4f-b1e" \
+  pamaptor-github-actions@pamaptor-prd.iam.gserviceaccount.com \
+  --project="pamaptor-prd" \
   --role="roles/iam.workloadIdentityUser" \
   --member="principalSet://iam.googleapis.com/projects/556319918654/locations/global/workloadIdentityPools/github-pool/attribute.repository/YOUR_GITHUB_USERNAME/pamaptor"
 
 # Get the provider resource name — copy this into GitHub Secrets
 gcloud iam workload-identity-pools providers describe github-provider \
-  --project="project-eca091cb-172a-4d4f-b1e" \
+  --project="pamaptor-prd" \
   --location="global" \
   --workload-identity-pool="github-pool" \
   --format="value(name)"
@@ -227,10 +227,10 @@ echo -n "https://pamaptor.com"     | gcloud secrets create NEXTAUTH_URL --data-f
 echo -n "https://pamaptor.com"     | gcloud secrets create NEXT_PUBLIC_APP_URL --data-file=- --replication-policy=automatic
 
 # Use the DATABASE_URL from Phase 2.3
-echo -n "postgresql://pamaptor_user:YOUR_DB_PASSWORD@localhost/pamaptor?host=/cloudsql/project-eca091cb-172a-4d4f-b1e:asia-southeast1:pamaptor-db" \
+echo -n "postgresql://pamaptor_user:YOUR_DB_PASSWORD@localhost/pamaptor?host=/cloudsql/pamaptor-prd:asia-southeast1:pamaptor-db" \
   | gcloud secrets create DATABASE_URL --data-file=- --replication-policy=automatic
 
-echo -n "project-eca091cb-172a-4d4f-b1e"            | gcloud secrets create GCP_PROJECT_ID --data-file=- --replication-policy=automatic
+echo -n "pamaptor-prd"            | gcloud secrets create GCP_PROJECT_ID --data-file=- --replication-policy=automatic
 echo -n "pamaptor-media"           | gcloud secrets create GCS_BUCKET_NAME --data-file=- --replication-policy=automatic
 
 # Hostinger SMTP — get credentials from:
@@ -284,8 +284,8 @@ Go to: **GitHub repo → Settings → Secrets and variables → Actions → New 
 | Secret Name | Value |
 |---|---|
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | Provider resource name from Phase 4.3 (e.g. `projects/556319918654/locations/global/...`) |
-| `GCP_SERVICE_ACCOUNT` | `pamaptor-github-actions@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com` |
-| `GCP_PROJECT_ID` | `project-eca091cb-172a-4d4f-b1e` |
+| `GCP_SERVICE_ACCOUNT` | `pamaptor-github-actions@pamaptor-prd.iam.gserviceaccount.com` |
+| `GCP_PROJECT_ID` | `pamaptor-prd` |
 
 ### 7.2 Create the workflow file
 
@@ -370,10 +370,10 @@ jobs:
 ```bash
 # Create a one-off Cloud Run Job for the migration
 gcloud run jobs create pamaptor-migrate \
-  --image=asia-southeast1-docker.pkg.dev/project-eca091cb-172a-4d4f-b1e/pamaptor/pamaptor:latest \
+  --image=asia-southeast1-docker.pkg.dev/pamaptor-prd/pamaptor/pamaptor:latest \
   --region=asia-southeast1 \
-  --service-account=pamaptor-cloudrun@project-eca091cb-172a-4d4f-b1e.iam.gserviceaccount.com \
-  --set-cloudsql-instances=project-eca091cb-172a-4d4f-b1e:asia-southeast1:pamaptor-db \
+  --service-account=pamaptor-cloudrun@pamaptor-prd.iam.gserviceaccount.com \
+  --set-cloudsql-instances=pamaptor-prd:asia-southeast1:pamaptor-db \
   --set-secrets="DATABASE_URL=DATABASE_URL:latest" \
   --command="prisma" \
   --args="migrate,deploy" \
