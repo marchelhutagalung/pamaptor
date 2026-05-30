@@ -70,8 +70,8 @@ jobs:
               GOOGLE_MAPS_SERVER_KEY=GOOGLE_MAPS_SERVER_KEY:latest,\
               NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:latest" \
             --allow-unauthenticated \
-            --min-instances=1 \
-            --max-instances=50 \
+            --min-instances=0 \
+            --max-instances=10 \
             --memory=1Gi \
             --cpu=1 \
             --concurrency=80 \
