@@ -31,7 +31,7 @@ function isImageRequest(url) {
     url.pathname.startsWith("/uploads/") ||
     url.pathname.match(/\.(jpg|jpeg|png|webp|gif|svg)$/i) ||
     (url.hostname === "storage.googleapis.com" &&
-      url.pathname.includes("pamaptor-media"))
+      url.pathname.includes("pamaptor-storage"))
   );
 }
 

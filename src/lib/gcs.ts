@@ -39,7 +39,7 @@ export async function uploadToGCS(
   // Use local filesystem in dev if GCS is not configured
   if (
     process.env.NODE_ENV !== "production" &&
-    (!process.env.GCS_BUCKET_NAME || process.env.GCS_BUCKET_NAME === "pamaptor-media" && !process.env.GCP_CREDENTIALS_PATH)
+    (!process.env.GCS_BUCKET_NAME || process.env.GCS_BUCKET_NAME === "pamaptor-storage" && !process.env.GCP_CREDENTIALS_PATH)
   ) {
     console.log(`[DEV] Saving file locally: /uploads/${destination}`);
     return uploadToLocal(file, destination);

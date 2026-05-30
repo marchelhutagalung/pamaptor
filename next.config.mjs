@@ -45,7 +45,7 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "storage.googleapis.com",
-        pathname: "/pamaptor-media/**",
+        pathname: "/pamaptor-storage/**",
       },
       {
         protocol: "https",

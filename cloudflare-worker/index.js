@@ -5,19 +5,19 @@
  *
  * Deploy steps (see DEPLOY.md Phase 8 CDN section):
  *   1. Go to Cloudflare Dashboard → Workers & Pages → Create Worker
- *   2. Paste this file, set the GCS_BUCKET env variable to "pamaptor-media"
+ *   2. Paste this file, set the GCS_BUCKET env variable to "pamaptor-storage"
  *   3. Add a Custom Domain: cdn.pamaptor.com
  *
  * Request flow:
  *   https://cdn.pamaptor.com/posts/abc.jpg
- *       → Worker fetches https://storage.googleapis.com/pamaptor-media/posts/abc.jpg
+ *       → Worker fetches https://storage.googleapis.com/pamaptor-storage/posts/abc.jpg
  *       → Response is cached at Cloudflare edge (Cache-Control: 1 year)
  *       → Subsequent requests are served from cache — GCS is never hit again
  */
 
 export default {
   async fetch(request, env) {
-    const bucket = env.GCS_BUCKET || "pamaptor-media";
+    const bucket = env.GCS_BUCKET || "pamaptor-storage";
     const url = new URL(request.url);
 
     // Only allow GET and HEAD

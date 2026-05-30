@@ -115,12 +115,12 @@ postgresql://pamaptor_user:YOUR_DB_PASSWORD@localhost/pamaptor?host=/cloudsql/pa
 
 ```bash
 # Create bucket in the same region
-gcloud storage buckets create gs://pamaptor-media \
+gcloud storage buckets create gs://pamaptor-storage \
   --location=asia-southeast1 \
   --uniform-bucket-level-access
 
 # Allow public read for post images and selfies
-gcloud storage buckets add-iam-policy-binding gs://pamaptor-media \
+gcloud storage buckets add-iam-policy-binding gs://pamaptor-storage \
   --member=allUsers \
   --role=roles/storage.objectViewer
 ```
@@ -231,7 +231,7 @@ echo -n "postgresql://pamaptor_user:YOUR_DB_PASSWORD@localhost/pamaptor?host=/cl
   | gcloud secrets create DATABASE_URL --data-file=- --replication-policy=automatic
 
 echo -n "pamaptor-prd"            | gcloud secrets create GCP_PROJECT_ID --data-file=- --replication-policy=automatic
-echo -n "pamaptor-media"           | gcloud secrets create GCS_BUCKET_NAME --data-file=- --replication-policy=automatic
+echo -n "pamaptor-storage"           | gcloud secrets create GCS_BUCKET_NAME --data-file=- --replication-policy=automatic
 
 # Hostinger SMTP — get credentials from:
 # Hostinger dashboard → Emails → Manage → Mail settings
