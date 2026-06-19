@@ -16,9 +16,19 @@ export interface NominatimResult {
 }
 
 export async function reverseGeocode(lat: number, lon: number): Promise<string> {
-  const res = await fetch(
-    `${GEO_BASE}/geocode/json?latlng=${lat},${lon}&key=${API_KEY}&language=id`
-  );
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  let res: Response;
+  try {
+    res = await fetch(
+      `${GEO_BASE}/geocode/json?latlng=${lat},${lon}&key=${API_KEY}&language=id`,
+      { signal: controller.signal }
+    );
+  } catch {
+    return `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) return `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
 
   const data = await res.json();
@@ -32,7 +42,16 @@ export async function reverseGeocode(lat: number, lon: number): Promise<string> 
 // Uses Geocoding API (forward geocode) — only requires Geocoding API, not Places API
 export async function searchLocation(query: string): Promise<NominatimResult[]> {
   const url = `${GEO_BASE}/geocode/json?address=${encodeURIComponent(query)}&key=${API_KEY}&language=id&region=id`;
-  const res = await fetch(url);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  let res: Response;
+  try {
+    res = await fetch(url, { signal: controller.signal });
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     console.error("[googlemaps] searchLocation HTTP error:", res.status, res.statusText);
     return [];

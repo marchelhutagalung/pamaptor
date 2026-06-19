@@ -1,18 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireAdmin } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
+import { unstable_cache, revalidateTag } from "next/cache";
 import { z } from "zod";
+
+const CATEGORY_CACHE_TAG = "active-categories";
+
+const getCachedCategories = unstable_cache(
+  async () =>
+    prisma.category.findMany({
+      where: { isActive: true },
+      orderBy: { order: "asc" },
+      select: { id: true, slug: true, label: true, color: true },
+    }),
+  [CATEGORY_CACHE_TAG],
+  { revalidate: 300, tags: [CATEGORY_CACHE_TAG] }
+);
 
 // GET — list active categories (for all authenticated users)
 export async function GET() {
   const { error } = await requireSession();
   if (error) return error;
 
-  const categories = await prisma.category.findMany({
-    where: { isActive: true },
-    orderBy: { order: "asc" },
-    select: { id: true, slug: true, label: true, color: true },
-  });
+  const categories = await getCachedCategories();
 
   return NextResponse.json(categories);
 }
@@ -56,5 +66,6 @@ export async function POST(request: NextRequest) {
     },
   });
 
+  revalidateTag(CATEGORY_CACHE_TAG);
   return NextResponse.json(category, { status: 201 });
 }

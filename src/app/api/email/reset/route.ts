@@ -8,7 +8,7 @@ import crypto from "crypto";
 const schema = z.object({ email: z.string().email() });
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(getIP(request), "password-reset", 5, 60 * 60 * 1000);
+  const rl = await rateLimit(getIP(request), "password-reset", 5, 60 * 60 * 1000);
   if (!rl.allowed) {
     return NextResponse.json(
       { error: "Terlalu banyak percobaan. Coba lagi nanti." },

@@ -33,10 +33,15 @@ export async function GET(request: NextRequest) {
     where.status = status as typeof VALID_STATUSES[number];
   }
 
+  const cursor = request.nextUrl.searchParams.get("cursor");
+  const PAGE_SIZE = 50;
+
   const [posts, categoryCountsRaw, totalNew, allCategories] = await Promise.all([
     prisma.post.findMany({
       where,
       orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
+      take: PAGE_SIZE + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       include: {
         category: { select: { id: true, slug: true, label: true, color: true } },
         user: {
@@ -64,5 +69,9 @@ export async function GET(request: NextRequest) {
     };
   });
 
-  return NextResponse.json({ posts, categoryCounts, totalNew });
+  const hasMore = posts.length > PAGE_SIZE;
+  const page = hasMore ? posts.slice(0, PAGE_SIZE) : posts;
+  const nextCursor = hasMore ? page[page.length - 1].id : null;
+
+  return NextResponse.json({ posts: page, categoryCounts, totalNew, nextCursor });
 }

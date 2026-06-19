@@ -1,31 +1,30 @@
-/**
- * Lightweight in-memory sliding window rate limiter.
- * Keyed by `${key}:${ip}` — e.g. "register:192.168.1.1"
- *
- * Works fine on a single Cloud Run instance. For multi-instance
- * deployments upgrade to Redis/Upstash-backed limiter.
- */
+import { Redis } from "@upstash/redis";
+import { Ratelimit } from "@upstash/ratelimit";
+
+// Upstash Redis client — only initialised when env vars are present.
+// Falls back to in-memory store so the app still works without Redis configured.
+const redis =
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+    ? new Redis({
+        url: process.env.UPSTASH_REDIS_REST_URL,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN,
+      })
+    : null;
+
+// ─── In-memory fallback (single-instance only) ────────────────────────────────
 
 const store = new Map<string, number[]>();
 
-// Clean up old entries every 10 minutes to prevent memory leak
 setInterval(() => {
   const now = Date.now();
-  store.forEach((timestamps: number[], key: string) => {
-    const recent = timestamps.filter((t: number) => now - t < 60 * 60 * 1000);
-    if (recent.length === 0) {
-      store.delete(key);
-    } else {
-      store.set(key, recent);
-    }
+  store.forEach((timestamps, key) => {
+    const recent = timestamps.filter((t) => now - t < 60 * 60 * 1000);
+    if (recent.length === 0) store.delete(key);
+    else store.set(key, recent);
   });
 }, 10 * 60 * 1000);
 
-/**
- * Check if the request is within rate limits.
- * @returns `{ allowed: true }` or `{ allowed: false, retryAfter: seconds }`
- */
-export function rateLimit(
+function inMemoryRateLimit(
   ip: string,
   key: string,
   limit: number,
@@ -34,29 +33,63 @@ export function rateLimit(
   const storeKey = `${key}:${ip}`;
   const now = Date.now();
   const windowStart = now - windowMs;
-
-  // Get existing timestamps within the current window
-  const timestamps = (store.get(storeKey) ?? []).filter(
-    (t) => t > windowStart
-  );
+  const timestamps = (store.get(storeKey) ?? []).filter((t) => t > windowStart);
 
   if (timestamps.length >= limit) {
-    // Oldest request in window — retry after it expires
     const oldest = timestamps[0];
-    const retryAfter = Math.ceil((oldest + windowMs - now) / 1000);
-    return { allowed: false, retryAfter };
+    return { allowed: false, retryAfter: Math.ceil((oldest + windowMs - now) / 1000) };
   }
 
-  // Allow — record this request
   timestamps.push(now);
   store.set(storeKey, timestamps);
   return { allowed: true };
 }
 
-/**
- * Extract the client IP from a NextRequest.
- * Handles reverse proxies (Cloud Run, Vercel, etc.).
- */
+// ─── Upstash limiter cache (one Ratelimit instance per key+config) ─────────────
+
+const limiterCache = new Map<string, Ratelimit>();
+
+function getUpstashLimiter(key: string, limit: number, windowMs: number): Ratelimit {
+  const cacheKey = `${key}:${limit}:${windowMs}`;
+  if (!limiterCache.has(cacheKey)) {
+    limiterCache.set(
+      cacheKey,
+      new Ratelimit({
+        redis: redis!,
+        limiter: Ratelimit.slidingWindow(limit, `${windowMs} ms`),
+        prefix: `rl:${key}`,
+      })
+    );
+  }
+  return limiterCache.get(cacheKey)!;
+}
+
+// ─── Public API ───────────────────────────────────────────────────────────────
+
+export async function rateLimit(
+  ip: string,
+  key: string,
+  limit: number,
+  windowMs: number
+): Promise<{ allowed: boolean; retryAfter?: number }> {
+  if (!redis) {
+    return inMemoryRateLimit(ip, key, limit, windowMs);
+  }
+
+  try {
+    const limiter = getUpstashLimiter(key, limit, windowMs);
+    const result = await limiter.limit(`${key}:${ip}`);
+    if (result.success) return { allowed: true };
+    const retryAfter = result.reset
+      ? Math.ceil((result.reset - Date.now()) / 1000)
+      : undefined;
+    return { allowed: false, retryAfter };
+  } catch {
+    // Redis unavailable — degrade gracefully to in-memory
+    return inMemoryRateLimit(ip, key, limit, windowMs);
+  }
+}
+
 export function getIP(request: Request): string {
   return (
     request.headers.get("x-forwarded-for")?.split(",")[0].trim() ??

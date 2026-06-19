@@ -17,7 +17,7 @@ const schema = z
   });
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(getIP(request), "change-password", 5, 15 * 60 * 1000);
+  const rl = await rateLimit(getIP(request), "change-password", 5, 15 * 60 * 1000);
   if (!rl.allowed) {
     return NextResponse.json(
       { error: "Terlalu banyak percobaan. Coba lagi nanti." },
